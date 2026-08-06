@@ -1,0 +1,4 @@
+sever : 10.17.16.106
+database: WMS1
+user : test
+password: sohoa99

@@ -1,0 +1,513 @@
+openapi: 3.0.3
+info:
+  title: Finished Goods Warehouse API Wrapper
+  description: API wrapper gọi SQL Server Stored Procedure cho hệ thống WMS kho thành phẩm. Business logic nằm trong Stored Procedure.
+  version: 0.6.0
+servers:
+  - url: https://wms-api.local/api/v1
+    description: Internal API wrapper
+  - url: http://localhost:5000/api/v1
+    description: Local development
+
+tags:
+  - name: Receipt
+    description: Nhập tạm và xác nhận nhập chính thức
+  - name: Pack360
+    description: Đóng, giải phóng, tách và đóng lại Pack360
+  - name: StockType
+    description: Chuyển stock type, BLOCKED và release tồn
+  - name: OEMTransfer
+    description: Chuyển đơn OEM trong quá trình lưu kho
+  - name: Outbound
+    description: Xuất kho và xuất lẻ từ thùng 60
+  - name: Traceability
+    description: Truy vết thùng 60, Pack360, ledger và audit
+
+paths:
+  /receipt/temp-sessions/{sessionNo}/scan:
+    post:
+      tags: [Receipt]
+      summary: Scan thùng 60 vào phiên nhập tạm
+      description: Wrapper gọi Stored Procedure usp_Receipt_ScanThung60.
+      operationId: scanTemporaryReceipt
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - name: sessionNo
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReceiptScanRequest'
+      responses:
+        '200':
+          description: Kết quả xử lý từ Stored Procedure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResult'
+
+  /receipt/temp-sessions/{sessionNo}/confirm-temp:
+    post:
+      tags: [Receipt]
+      summary: Nhân viên kho xác nhận nhập tạm
+      description: Wrapper gọi Stored Procedure usp_Receipt_TempConfirm.
+      operationId: confirmTemporaryReceipt
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - name: sessionNo
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Kết quả xử lý từ Stored Procedure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResult'
+
+  /receipt/temp-sessions/{sessionNo}/confirm-official:
+    post:
+      tags: [Receipt]
+      summary: Thủ kho xác nhận nhập chính thức
+      description: Wrapper gọi Stored Procedure usp_Receipt_OfficialConfirm.
+      operationId: confirmOfficialReceipt
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - name: sessionNo
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Kết quả xử lý từ Stored Procedure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResult'
+
+  /pack360/create:
+    post:
+      tags: [Pack360]
+      summary: Tạo Pack360 OPEN
+      description: Wrapper gọi Stored Procedure usp_Pack360_Create.
+      operationId: createPack360
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Pack360CreateRequest'
+      responses:
+        '200':
+          description: Kết quả xử lý từ Stored Procedure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResult'
+
+  /pack360/{pack360Id}/units:
+    post:
+      tags: [Pack360]
+      summary: Thêm thùng 60 vào Pack360
+      description: Wrapper gọi Stored Procedure usp_Pack360_AddThung60.
+      operationId: addThung60ToPack360
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - name: pack360Id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Pack360AddUnitRequest'
+      responses:
+        '200':
+          description: Kết quả xử lý từ Stored Procedure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResult'
+
+  /pack360/{pack360Id}/complete:
+    post:
+      tags: [Pack360]
+      summary: Complete Pack360
+      description: Wrapper gọi Stored Procedure usp_Pack360_Complete.
+      operationId: completePack360
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - name: pack360Id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Kết quả xử lý từ Stored Procedure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResult'
+
+  /pack360/{pack360Id}/release:
+    post:
+      tags: [Pack360]
+      summary: Giải phóng Pack360
+      description: Wrapper gọi Stored Procedure usp_Pack360_Release.
+      operationId: releasePack360
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - name: pack360Id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReasonRequest'
+      responses:
+        '200':
+          description: Kết quả xử lý từ Stored Procedure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResult'
+
+  /pack360/{pack360Id}/split-units:
+    post:
+      tags: [Pack360]
+      summary: Tách một hoặc nhiều thùng 60 khỏi Pack360
+      description: Wrapper gọi Stored Procedure usp_Pack360_SplitUnits.
+      operationId: splitPack360Units
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - name: pack360Id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Pack360SplitRequest'
+      responses:
+        '200':
+          description: Kết quả xử lý từ Stored Procedure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResult'
+
+  /stock-type/change:
+    post:
+      tags: [StockType]
+      summary: Chuyển stock type, ví dụ BLOCKED cho dư đơn hoặc vấn đề chất lượng
+      description: Wrapper gọi Stored Procedure usp_StockType_Change_Post.
+      operationId: changeStockType
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StockTypeChangeRequest'
+      responses:
+        '200':
+          description: Kết quả xử lý từ Stored Procedure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResult'
+
+  /stock-type/release:
+    post:
+      tags: [StockType]
+      summary: Release tồn bị khóa
+      description: Wrapper gọi Stored Procedure usp_StockType_Release.
+      operationId: releaseStockType
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StockTypeReleaseRequest'
+      responses:
+        '200':
+          description: Kết quả xử lý từ Stored Procedure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResult'
+
+  /oem-transfer/post:
+    post:
+      tags: [OEMTransfer]
+      summary: Post chuyển đơn OEM
+      description: Wrapper gọi Stored Procedure usp_OEM_Transfer_Post.
+      operationId: postOemTransfer
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OemTransferRequest'
+      responses:
+        '200':
+          description: Kết quả xử lý từ Stored Procedure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResult'
+
+  /outbound/partial-issue:
+    post:
+      tags: [Outbound]
+      summary: Xuất lẻ từ thùng 60
+      description: Wrapper gọi Stored Procedure usp_Outbound_PartialIssue. Stored Procedure tạo bản ghi thùng 60 ảo trong cùng bảng tbl_thung60_kho.
+      operationId: partialIssue
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PartialIssueRequest'
+      responses:
+        '200':
+          description: Kết quả xử lý từ Stored Procedure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResult'
+
+  /trace/thung60/{id60}:
+    get:
+      tags: [Traceability]
+      summary: Truy vết vòng đời thùng 60
+      operationId: getThung60Trace
+      parameters:
+        - name: id60
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Timeline thùng 60
+          content:
+            application/json:
+              schema:
+                type: object
+
+components:
+  parameters:
+    RequestId:
+      name: X-Request-Id
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Mã chống gửi lặp, được truyền xuống Stored Procedure.
+
+  schemas:
+    CommandResult:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [SUCCESS, FAILED, DUPLICATED, CONFLICT, UNAUTHORIZED]
+        message:
+          type: string
+        error_code:
+          type: string
+          nullable: true
+        document_no:
+          type: string
+          nullable: true
+        object_code:
+          type: string
+          nullable: true
+        request_id:
+          type: string
+        trace_id:
+          type: string
+      required: [status, message, request_id]
+
+    ReceiptScanRequest:
+      type: object
+      properties:
+        handover_no:
+          type: string
+        handover_line_no:
+          type: string
+        qr_60:
+          type: string
+        user_code:
+          type: string
+        device_id:
+          type: string
+      required: [handover_no, handover_line_no, qr_60, user_code]
+
+    Pack360CreateRequest:
+      type: object
+      properties:
+        pack_type:
+          type: string
+          enum: [STANDARD, OEM]
+        oem_order_no:
+          type: string
+          nullable: true
+        po_no:
+          type: string
+          nullable: true
+        pack_rule_code:
+          type: string
+        user_code:
+          type: string
+      required: [pack_type, user_code]
+
+    Pack360AddUnitRequest:
+      type: object
+      properties:
+        id_60:
+          type: string
+        qr_60:
+          type: string
+        user_code:
+          type: string
+        device_id:
+          type: string
+      required: [id_60, user_code]
+
+    ReasonRequest:
+      type: object
+      properties:
+        reason_code:
+          type: string
+        note:
+          type: string
+        user_code:
+          type: string
+      required: [reason_code, user_code]
+
+    Pack360SplitRequest:
+      type: object
+      properties:
+        unit_ids:
+          type: array
+          items:
+            type: string
+        reason_code:
+          type: string
+        note:
+          type: string
+        user_code:
+          type: string
+      required: [unit_ids, reason_code, user_code]
+
+    StockTypeChangeRequest:
+      type: object
+      properties:
+        object_type:
+          type: string
+          enum: [THUNG60, PACK360, PALLET, LOCATION]
+        object_codes:
+          type: array
+          items:
+            type: string
+        new_stock_type:
+          type: string
+          enum: [UNRESTRICTED, BLOCKED, RETURNED, TEMPORARY_ISSUE, CUSTOMER_OWNED, SCRAP]
+        reason_code:
+          type: string
+          enum: [OEM_SURPLUS, QUALITY_ISSUE, PARTIAL_REMAINING, DATA_EXCEPTION, WAITING_DECISION]
+        note:
+          type: string
+        user_code:
+          type: string
+      required: [object_type, object_codes, new_stock_type, reason_code, user_code]
+
+    StockTypeReleaseRequest:
+      type: object
+      properties:
+        object_type:
+          type: string
+        object_codes:
+          type: array
+          items:
+            type: string
+        target_stock_type:
+          type: string
+          default: UNRESTRICTED
+        reason_code:
+          type: string
+        user_code:
+          type: string
+      required: [object_type, object_codes, target_stock_type, reason_code, user_code]
+
+    OemTransferRequest:
+      type: object
+      properties:
+        object_type:
+          type: string
+          enum: [THUNG60, PACK360, PALLET]
+        object_codes:
+          type: array
+          items:
+            type: string
+        from_oem_order_no:
+          type: string
+        to_oem_order_no:
+          type: string
+        to_po_no:
+          type: string
+        reason_code:
+          type: string
+        user_code:
+          type: string
+      required: [object_type, object_codes, to_oem_order_no, reason_code, user_code]
+
+    PartialIssueRequest:
+      type: object
+      properties:
+        issue_no:
+          type: string
+        issue_line_no:
+          type: string
+        source_id_60:
+          type: string
+        split_qty:
+          type: number
+          format: double
+        uom:
+          type: string
+        user_code:
+          type: string
+        device_id:
+          type: string
+      required: [issue_no, issue_line_no, source_id_60, split_qty, user_code]

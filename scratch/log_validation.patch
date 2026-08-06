@@ -1,0 +1,17 @@
+--- src/Wms.Api/Program.cs
++++ src/Wms.Api/Program.cs
+@@ -104,6 +104,13 @@
+     {
+         options.JsonSerializerOptions.NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString;
+         options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
++    })
++    .ConfigureApiBehaviorOptions(options =>
++    {
++        options.InvalidModelStateResponseFactory = context => {
++            var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
++            logger.LogError("Validation failed: {Error}", System.Text.Json.JsonSerializer.Serialize(context.ModelState));
++            return new BadRequestObjectResult(new ValidationProblemDetails(context.ModelState));
++        };
+     });
+ 
+ // OPS-01: Chỉ dùng Health Checks framework — không dùng HealthController + MapHealthChecks cùng lúc

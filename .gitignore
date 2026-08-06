@@ -1,0 +1,17 @@
+# SEC-02: Development secrets — không commit
+src/Wms.Api/appsettings.Development.json
+src/Wms.Api/appsettings.*.local.json
+**/secrets.json
+
+# .NET
+[Bb]in/
+[Oo]bj/
+.vs/
+*.user
+
+# Node / Frontend
+node_modules/
+dist/
+build/
+.env
+.env.*.local
