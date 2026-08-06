@@ -1,4 +1,7 @@
-sever : 10.17.16.106
-database: WMS1
-user : test
-password: sohoa99
+Khong luu mat khau SQL trong Git.
+
+Cau hinh ket noi khi chay API bang bien moi truong:
+ConnectionStrings__DefaultConnection=Server=<server>;Database=<database>;User Id=<user>;Password=<password>;TrustServerCertificate=True;
+
+Cau hinh khoa JWT co do dai toi thieu 32 ky tu:
+Jwt__Secret=<random-secret>

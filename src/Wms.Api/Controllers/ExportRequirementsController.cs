@@ -15,11 +15,16 @@ public class ExportRequirementsController : ControllerBase
 {
     private readonly ISqlConnectionFactory _connectionFactory;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IWebHostEnvironment _environment;
 
-    public ExportRequirementsController(ISqlConnectionFactory connectionFactory, ICurrentUserService currentUserService)
+    public ExportRequirementsController(
+        ISqlConnectionFactory connectionFactory,
+        ICurrentUserService currentUserService,
+        IWebHostEnvironment environment)
     {
         _connectionFactory = connectionFactory;
         _currentUserService = currentUserService;
+        _environment = environment;
     }
 
     [HttpPost("paste-data")]
@@ -345,11 +350,16 @@ public class ExportRequirementsController : ControllerBase
         }
     }
 
-    [AllowAnonymous]
+    [Authorize(Policy = PolicyNames.AdminUsersManage)]
     [HttpPost("clear-test-data")]
     [HttpDelete("clear-test-data")]
     public async Task<IActionResult> ClearTestData()
     {
+        if (!_environment.IsDevelopment())
+        {
+            return NotFound();
+        }
+
         using var connection = await _connectionFactory.CreateConnectionAsync();
         using var transaction = connection.BeginTransaction();
         try

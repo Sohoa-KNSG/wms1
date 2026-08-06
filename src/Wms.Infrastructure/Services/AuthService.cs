@@ -106,13 +106,14 @@ public class AuthService : IAuthService
             permissionList = dbPerms ?? Array.Empty<string>();
         }
 
-        // Grant full permissions for ADMIN, STOREKEEPER, OPERATOR, or if permission list is empty
+        // Only explicitly privileged administrator roles receive every policy.
+        // Missing role-permission mappings must fail closed instead of elevating the user.
         var allPolicies = typeof(PolicyNames).GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
             .Select(f => f.GetValue(null)?.ToString())
             .Where(p => !string.IsNullOrEmpty(p))
             .Cast<string>();
 
-        if (!permissionList.Any() || roleList.Any(r => r.Equals("ADMIN", StringComparison.OrdinalIgnoreCase) || r.Equals("IT_ADMIN", StringComparison.OrdinalIgnoreCase) || r.Equals("STOREKEEPER", StringComparison.OrdinalIgnoreCase) || r.Equals("OPERATOR", StringComparison.OrdinalIgnoreCase)))
+        if (roleList.Any(r => r.Equals("ADMIN", StringComparison.OrdinalIgnoreCase) || r.Equals("IT_ADMIN", StringComparison.OrdinalIgnoreCase)))
         {
             permissionList = permissionList.Concat(allPolicies).Distinct();
         }

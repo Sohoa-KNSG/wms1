@@ -260,6 +260,18 @@ BEGIN
         END;
 
     -- Thao tác DB chéo (Cross-DB). Cập nhật trạng thái sang 3 (BR-UC04-05)
+    -- Every distinct VALID carton must be updated in Packaging. If another
+    -- process changed or removed any carton, roll back the whole receipt.
+    DECLARE @ExpectedPackagingRows INT;
+    DECLARE @UpdatedPackagingRows INT;
+
+    SELECT @ExpectedPackagingRows = COUNT(DISTINCT s.MaThung60)
+    FROM dbo.WMS_UC03_ScanLog s
+    WHERE s.SoPhieuNhap = @SoPhieuNhap
+      AND (s.MaChiTietPhieu = @MaChiTietPhieu OR @MaChiTietPhieu IS NULL)
+      AND s.TrangThaiScan = N'VALID'
+      AND s.IsDeleted = 0;
+
     UPDATE p
     SET 
         p.trangthai = '3',
@@ -275,13 +287,13 @@ BEGIN
       AND s.IsDeleted = 0
       AND p.trangthai = '1';
 
-    IF @@ROWCOUNT = 0
+    SET @UpdatedPackagingRows = @@ROWCOUNT;
+
+    IF @UpdatedPackagingRows <> @ExpectedPackagingRows
     BEGIN
-        -- Log warning instead of failing the entire transaction in test environments
-        PRINT N'Cảnh báo: Không thể cập nhật trạng thái bên Packaging (Có thể không tìm thấy id_60 hoặc trạng thái không phải là 1). Bỏ qua.';
-        -- ROLLBACK TRANSACTION;
-        -- RAISERROR(N'Không thể cập nhật trạng thái bên Packaging (Có thể trạng thái không phải là 1).', 16, 1);
-        -- RETURN;
+        ROLLBACK TRANSACTION;
+        RAISERROR(N'Cập nhật Packaging không đầy đủ (%d/%d thùng). Giao dịch nhập kho đã rollback.', 16, 1, @UpdatedPackagingRows, @ExpectedPackagingRows);
+        RETURN;
     END;
 
     -- Ghi dữ liệu vào bảng tbl_thung60_kho (BR-UC04-03)

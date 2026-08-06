@@ -130,7 +130,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("WmsCorsPolicy", policy =>
     {
-        policy.SetIsOriginAllowed(_ => true)
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
@@ -216,3 +216,6 @@ app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks
 }).AllowAnonymous();
 
 app.Run();
+
+// Expose the top-level entry point to WebApplicationFactory integration tests.
+public partial class Program;

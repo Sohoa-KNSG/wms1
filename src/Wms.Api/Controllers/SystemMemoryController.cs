@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Wms.Application.Common.Interfaces;
 using Wms.Application.Common.Models;
+using Wms.Domain.Constants;
 
 namespace Wms.Api.Controllers;
 
@@ -11,10 +12,14 @@ namespace Wms.Api.Controllers;
 public class SystemMemoryController : ControllerBase
 {
     private readonly ISqlConnectionFactory _connectionFactory;
+    private readonly ICurrentUserService _currentUserService;
 
-    public SystemMemoryController(ISqlConnectionFactory connectionFactory)
+    public SystemMemoryController(
+        ISqlConnectionFactory connectionFactory,
+        ICurrentUserService currentUserService)
     {
         _connectionFactory = connectionFactory;
+        _currentUserService = currentUserService;
     }
 
     [AllowAnonymous]
@@ -44,7 +49,7 @@ public class SystemMemoryController : ControllerBase
         return Ok(ApiResponse<object>.Success(result));
     }
 
-    [AllowAnonymous]
+    [Authorize(Policy = PolicyNames.AdminUsersManage)]
     [HttpPost]
     public async Task<IActionResult> RecordChangeHistory([FromBody] RecordSystemChangeDto request)
     {
@@ -69,7 +74,7 @@ public class SystemMemoryController : ControllerBase
             DetailedDescription = request.DetailedDescription,
             AffectedFiles = request.AffectedFiles,
             VerificationStatus = request.VerificationStatus ?? "VERIFIED_SUCCESS",
-            PerformedBy = request.PerformedBy ?? "ANTIGRAVITY_AGENT"
+            PerformedBy = _currentUserService.Username
         });
 
         return Ok(ApiResponse<string>.Success("Đã lưu vết bộ nhớ lịch sử thay đổi hệ thống thành công."));

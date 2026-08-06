@@ -1,5 +1,8 @@
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
+const { verifyToken } = require('./middleware/auth');
 const receiptRoutes = require('./routes/receipt');
 const authRoutes = require('./routes/auth');
 const ledgerRoutes = require('./routes/ledger');
@@ -15,7 +18,21 @@ const reconciliationRoutes = require('./routes/reconciliation');
 const temporaryDispatchRoutes = require('./routes/temporaryDispatch');
 const app = express();
 
-app.use(cors());
+const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || 'http://localhost:5173,http://localhost:3000')
+  .split(',')
+  .map(origin => origin.trim())
+  .filter(Boolean);
+
+app.use(cors({
+  credentials: true,
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error('Origin is not allowed by CORS'));
+  }
+}));
 app.use(express.json());
 
 // Routes - Dual mounted for /api/v1 and legacy /api compatibility
@@ -39,8 +56,9 @@ const mounts = [
 ];
 
 mounts.forEach(([prefix, router]) => {
-  app.use(`/api/v1/${prefix}`, router);
-  app.use(`/api/${prefix}`, router);
+  const middleware = prefix === 'auth' ? [] : [verifyToken];
+  app.use(`/api/v1/${prefix}`, ...middleware, router);
+  app.use(`/api/${prefix}`, ...middleware, router);
 });
 
 app.get('/health', (req, res) => {

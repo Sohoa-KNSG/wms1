@@ -1,7 +1,11 @@
 const jwt = require('jsonwebtoken');
 
-// Thay vì biến môi trường phức tạp cho demo, ta dùng secret cứng. Thực tế cần đưa vào .env
-const JWT_SECRET = 'WMS_SECRET_KEY_2026';
+// Never fall back to a repository-defined signing key.
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET || JWT_SECRET.length < 32) {
+  throw new Error('JWT_SECRET must be provided through the environment and contain at least 32 characters');
+}
 
 const verifyToken = (req, res, next) => {
   const token = req.headers['authorization'];
