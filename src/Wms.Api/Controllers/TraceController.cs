@@ -200,110 +200,78 @@ public class TraceController : ControllerBase
     {
         using var connection = await _connectionFactory.CreateConnectionAsync();
         
-        // 1. Kiểm tra Thùng 60
-        var carton = await connection.QueryFirstOrDefaultAsync<dynamic>(
-            "SELECT * FROM tbl_thung60_kho WHERE id_60 = @code OR qr_60 = @code", new { code = assetCode });
-        if (carton != null)
+        using var multi = await connection.QueryMultipleAsync("usp_WMS_UC12_GetUniversalDossier", new { assetCode }, commandType: System.Data.CommandType.StoredProcedure);
+        
+        var typeResult = await multi.ReadFirstOrDefaultAsync<dynamic>();
+        if (typeResult == null || (string)typeResult!.asset_type == "NOT_FOUND")
+            return NotFound(ApiResponse<object>.Error(WmsErrorCodes.NotFound, $"Không tìm thấy hồ sơ tài sản (Thùng 60 / Kiện 360 / Pallet) với mã [{assetCode}]."));
+
+        string assetType = (string)typeResult!.asset_type;
+
+        if (assetType == "CARTON_60")
         {
-            string actualId = carton.id_60;
-            var events = await connection.QueryAsync<dynamic>(
-                "SELECT * FROM thung60_event WHERE id_60 = @id ORDER BY performed_at DESC", new { id = actualId });
-            var ledgers = await connection.QueryAsync<dynamic>(@"
-                SELECT l.*, t.transaction_type, t.posted_by, t.customer_name
-                FROM inventory_ledger l
-                LEFT JOIN stock_transaction_book t ON l.transaction_id = t.transaction_id
-                WHERE l.id_60 = @id ORDER BY l.posted_at DESC", new { id = actualId });
-            var splits = await connection.QueryAsync<dynamic>(
-                "SELECT * FROM thung60_split_history WHERE source_id_60 = @id OR generated_id_60 = @id ORDER BY performed_at DESC", new { id = actualId });
+            var profile = await multi.ReadFirstOrDefaultAsync<dynamic>();
+            var splits = await multi.ReadAsync<dynamic>();
+            var events = await multi.ReadAsync<dynamic>();
+            var ledgers = await multi.ReadAsync<dynamic>();
 
             return Ok(ApiResponse<object>.Success(new
             {
-                asset_type = "CARTON_60",
-                profile = carton,
+                asset_type = assetType,
+                profile = profile,
                 hierarchy = new
                 {
-                    parent_pack_id = carton.parent_pack_id,
-                    current_pallet_id = carton.current_pallet_id,
-                    is_virtual = carton.is_virtual,
-                    splits
+                    parent_pack_id = profile?.parent_pack_id,
+                    current_pallet_id = profile?.current_pallet_id,
+                    is_virtual = profile?.is_virtual,
+                    splits = splits
+                },
+                timeline = events,
+                ledger_audits = ledgers
+            }));
+        }
+        else if (assetType == "PACK_360")
+        {
+            var profile = await multi.ReadFirstOrDefaultAsync<dynamic>();
+            var childUnits = await multi.ReadAsync<dynamic>();
+            var events = await multi.ReadAsync<dynamic>();
+            var ledgers = await multi.ReadAsync<dynamic>();
+
+            return Ok(ApiResponse<object>.Success(new
+            {
+                asset_type = assetType,
+                profile = profile,
+                hierarchy = new
+                {
+                    child_count = childUnits.Count(),
+                    child_units = childUnits,
+                    oem_order_no = profile?.oem_order_no
+                },
+                timeline = events,
+                ledger_audits = ledgers
+            }));
+        }
+        else if (assetType == "PALLET")
+        {
+            var profile = await multi.ReadFirstOrDefaultAsync<dynamic>();
+            var mappedUnits = await multi.ReadAsync<dynamic>();
+            var events = await multi.ReadAsync<dynamic>();
+            var ledgers = await multi.ReadAsync<dynamic>();
+
+            return Ok(ApiResponse<object>.Success(new
+            {
+                asset_type = assetType,
+                profile = profile,
+                hierarchy = new
+                {
+                    child_count = mappedUnits.Count(),
+                    child_units = mappedUnits
                 },
                 timeline = events,
                 ledger_audits = ledgers
             }));
         }
 
-        // 2. Kiểm tra Kiện Pack360
-        var pack = await connection.QueryFirstOrDefaultAsync<dynamic>(
-            "SELECT * FROM pack360_header WHERE pack360_id = @code OR pack360_qr = @code", new { code = assetCode });
-        if (pack != null)
-        {
-            string packId = pack.pack360_id;
-            var childUnits = await connection.QueryAsync<dynamic>(@"
-                SELECT u.id_60, u.added_at, u.added_by, t.product_code, t.current_qty, t.status, t.stock_type, t.current_location_code
-                FROM pack360_unit u
-                INNER JOIN tbl_thung60_kho t ON u.id_60 = t.id_60
-                WHERE u.pack360_id = @packId AND u.is_current = 1", new { packId });
-            var packEvents = await connection.QueryAsync<dynamic>(
-                "SELECT * FROM pack360_event WHERE pack360_id = @packId ORDER BY performed_at DESC", new { packId });
-            var packLedgers = await connection.QueryAsync<dynamic>(@"
-                SELECT l.*, t.transaction_type, t.posted_by, t.customer_name
-                FROM inventory_ledger l
-                LEFT JOIN stock_transaction_book t ON l.transaction_id = t.transaction_id
-                WHERE l.id_60 IN (SELECT id_60 FROM pack360_unit WHERE pack360_id = @packId)
-                ORDER BY l.posted_at DESC", new { packId });
-
-            return Ok(ApiResponse<object>.Success(new
-            {
-                asset_type = "PACK_360",
-                profile = pack,
-                hierarchy = new
-                {
-                    child_count = childUnits.Count(),
-                    child_units = childUnits,
-                    oem_order_no = pack.oem_order_no
-                },
-                timeline = packEvents,
-                ledger_audits = packLedgers
-            }));
-        }
-
-        // 3. Kiểm tra Pallet
-        var pallet = await connection.QueryFirstOrDefaultAsync<dynamic>(
-            "SELECT * FROM pallet WHERE pallet_id = @code", new { code = assetCode });
-        if (pallet != null)
-        {
-            string palletId = pallet.pallet_id;
-            var mappedUnits = await connection.QueryAsync<dynamic>(@"
-                SELECT pu.unit_id, pu.unit_type, pu.attached_at, pu.attached_by,
-                       t.product_code, t.current_qty, t.status as unit_status, t.stock_type
-                FROM pallet_unit pu
-                LEFT JOIN tbl_thung60_kho t ON pu.unit_id = t.id_60 AND pu.unit_type = 'CARTON'
-                WHERE pu.pallet_id = @palletId AND pu.is_current = 1", new { palletId });
-            
-            var locationHistory = await connection.QueryAsync<dynamic>(
-                "SELECT * FROM pallet_location_history WHERE pallet_id = @palletId ORDER BY placed_at DESC", new { palletId });
-
-            var palletLedgers = await connection.QueryAsync<dynamic>(@"
-                SELECT l.*, t.transaction_type, t.posted_by, t.customer_name
-                FROM inventory_ledger l
-                LEFT JOIN stock_transaction_book t ON l.transaction_id = t.transaction_id
-                WHERE l.id_60 IN (SELECT unit_id FROM pallet_unit WHERE pallet_id = @palletId AND is_current = 1)
-                ORDER BY l.posted_at DESC", new { palletId });
-
-            return Ok(ApiResponse<object>.Success(new
-            {
-                asset_type = "PALLET",
-                profile = pallet,
-                hierarchy = new
-                {
-                    child_count = mappedUnits.Count(),
-                    child_units = mappedUnits
-                },
-                timeline = locationHistory,
-                ledger_audits = palletLedgers
-            }));
-        }
-
-        return NotFound(ApiResponse<object>.Error(WmsErrorCodes.NotFound, $"Không tìm thấy hồ sơ tài sản (Thùng 60 / Kiện 360 / Pallet) với mã [{assetCode}]."));
+        return NotFound(ApiResponse<object>.Error(WmsErrorCodes.NotFound, $"Không tìm thấy hồ sơ tài sản với mã [{assetCode}]."));
     }
 }

@@ -14,7 +14,9 @@ export default function Pack360Screen({ onBack, initialPackType }) {
   const [weight, setWeight] = useState(null);
   const [printData, setPrintData] = useState(null); 
   const [isManualWeight, setIsManualWeight] = useState(false);
-  const [manualWeightValue, setManualWeightValue] = useState(''); 
+  const [manualWeightValue, setManualWeightValue] = useState('');
+  const [scaleStatus, setScaleStatus] = useState({ state: 'OFFLINE', isStable: false, stale: true }); 
+  const [printerStatus, setPrinterStatus] = useState({ isReady: false, status: 'OFFLINE' });
   const [oemOrderNo, setOemOrderNo] = useState('');
   const [releaseReason, setReleaseReason] = useState('');
   const [releaseInput, setReleaseInput] = useState('');
@@ -36,6 +38,35 @@ export default function Pack360Screen({ onBack, initialPackType }) {
   useEffect(() => {
     scanInputRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    let interval;
+    if (!isManualWeight) {
+      interval = setInterval(async () => {
+        try {
+          const data = await scaleService.readWeight();
+          setWeight(data.weight);
+          let state = 'CONNECTED';
+          if (data.stale) state = 'STALE';
+          else if (!data.isStable) state = 'UNSTABLE';
+          else state = 'STABLE';
+          setScaleStatus({ state, isStable: !!data.isStable, stale: !!data.stale });
+        } catch (error) {
+          setScaleStatus({ state: 'OFFLINE', isStable: false, stale: true });
+        }
+
+        try {
+          const pStatus = await printService.checkPrinterStatus();
+          setPrinterStatus(pStatus);
+        } catch (error) {
+          setPrinterStatus({ isReady: false, status: 'OFFLINE' });
+        }
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isManualWeight]);
 
   const fetchOemOrders = async () => {
     try {
@@ -130,6 +161,14 @@ export default function Pack360Screen({ onBack, initialPackType }) {
       const data = await scaleService.readWeight();
       const scaleWeight = data.weight || 0;
       setWeight(scaleWeight);
+      if (data.stale) {
+        setStatusMsg({ text: 'Dữ liệu cân bị cũ (STALE).', type: 'error' });
+        return null;
+      }
+      if (!data.isStable) {
+        setStatusMsg({ text: 'Cân chưa ổn định (UNSTABLE).', type: 'error' });
+        return null;
+      }
       setStatusMsg({ text: `Đã lấy cân nặng: ${scaleWeight} kg`, type: 'success' });
       return scaleWeight;
     } catch (error) {
@@ -139,33 +178,17 @@ export default function Pack360Screen({ onBack, initialPackType }) {
   };
 
   const generateTSPL = (data) => {
-    const { pack360_qr, weight, units } = data;
-    
-    let tspl = `SIZE 78 mm,40 mm\nGAP 2 mm,0\nDIRECTION 1\nCLS\n`;
-    tspl += `TEXT 320,24,"2",0,1,1,"ID:"\nBOX 385,9,460,58,3\nTEXT 395,30,"2",0,1,1,"5567"\nTEXT 500,30,"2",0,1,1,"PASSED"\n`;
-    tspl += `TEXT 155,65,"2",0,1,1,"Weight (Kg) :"\nTEXT 200,100,"5",0,1,1,"${weight}"\nTEXT 170,160,"4",0,1,1,"000/26XK"\n`;
-    tspl += `TEXT 5,250,"3",0,1,1,"${pack360_qr}"\nQRCODE 20,60,M,5,A,0,"${pack360_qr}"\nQRCODE 480,60,M,5,A,0,"${pack360_qr}"\nPRINT 1\n`;
-
-    tspl += `SIZE 78 mm,40 mm\nGAP 2 mm,0\nDIRECTION 1\nCLS\n`;
-    tspl += `TEXT 320,24,"2",0,1,1,"ID:"\nBOX 385,24,470,50,2\nTEXT 395,30,"2",0,1,1,"5567"\nTEXT 500,30,"2",0,1,1,"PASSED"\n`;
-
-    let y = 65;
-    units.slice(0, 6).forEach(u => {
-      tspl += `TEXT 145,${y},"3",0,1,1,"${u}"\n`;
-      y += 35;
-    });
-
-    tspl += `QRCODE 20,60,M,4,A,0,"${pack360_qr}"\nPRINT 1\n`;
-    return tspl;
+    return data.label_tspl || '';
   };
 
   const handlePrint = async (dataToPrint) => {
     try {
       const tsplCommand = generateTSPL(dataToPrint);
+      if (!tsplCommand) throw new Error("Không có dữ liệu TSPL");
       await printService.printLabel(tsplCommand);
       setStatusMsg({ text: 'Đã gửi lệnh in 2 tem thành công.', type: 'success' });
     } catch (error) {
-      setStatusMsg({ text: 'Gửi lệnh in thất bại. Đảm bảo Local Bridge đang chạy.', type: 'error' });
+      throw error;
     }
   };
 
@@ -173,6 +196,8 @@ export default function Pack360Screen({ onBack, initialPackType }) {
     if (!pack360Id) return;
     
     let scaleWeight = null;
+    let weightSource = 'SCALE';
+    let manualReason = '';
     
     if (isManualWeight) {
       scaleWeight = parseFloat(manualWeightValue);
@@ -180,10 +205,15 @@ export default function Pack360Screen({ onBack, initialPackType }) {
         setStatusMsg({ text: 'Vui lòng nhập trọng lượng hợp lệ!', type: 'error' });
         return;
       }
+      weightSource = 'MANUAL';
+      manualReason = window.prompt("Vui lòng nhập lý do nhập tay trọng lượng:");
+      if (!manualReason) {
+         setStatusMsg({ text: 'Bắt buộc nhập lý do khi cân thủ công!', type: 'error' });
+         return;
+      }
     } else {
       scaleWeight = await getWeightFromScale();
       if (scaleWeight === null) {
-        setStatusMsg({ text: 'Không lấy được cân IoT. Vui lòng chuyển sang NHẬP THỦ CÔNG.', type: 'warning' });
         return;
       }
     }
@@ -193,18 +223,40 @@ export default function Pack360Screen({ onBack, initialPackType }) {
 
       const res = await packingApi.completePack({
         pack360_id: pack360Id,
-        weight: scaleWeight
+        weight: scaleWeight,
+        weight_source: weightSource,
+        manual_weight_reason: manualReason
       });
 
       const payload = res?.data !== undefined ? res.data : res;
       setPrintData(payload);
-      await handlePrint(payload);
       
-      setPack360Id(null);
-      setScannedUnits([]);
-      setWeight(null);
+      try {
+        await handlePrint(payload);
+        setPack360Id(null);
+        setScannedUnits([]);
+        setWeight(null);
+      } catch (printError) {
+        setStatusMsg({ text: 'Pack360 completed but print failed', type: 'warning' });
+      }
     } catch (error) {
       setStatusMsg({ text: `Lỗi: ${error.message}`, type: 'error' });
+    }
+  };
+
+  const handleReprint = async () => {
+    if (!printData || (!pack360Id && !printData.pack360_id)) return;
+    const reason = window.prompt("Nhập lý do in lại:");
+    if (!reason) return;
+    try {
+      setStatusMsg({ text: 'Đang gửi yêu cầu in lại...', type: 'info' });
+      const idToReprint = pack360Id || printData.pack360_id;
+      const res = await packingApi.reprintPack({ pack360_id: idToReprint, reason });
+      const payload = res?.data !== undefined ? res.data : res;
+      setPrintData(payload);
+      await handlePrint(payload);
+    } catch (err) {
+      setStatusMsg({ text: `Lỗi in lại: ${err.message}`, type: 'error' });
     }
   };
 
@@ -338,7 +390,18 @@ export default function Pack360Screen({ onBack, initialPackType }) {
           <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600 }}>Trạm Đóng Gói Pack360 (PC)</h2>
         </div>
         
-        <div style={{ display: 'flex', background: 'rgba(255,255,255,0.2)', borderRadius: '6px', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', fontSize: '12px', fontWeight: 'bold' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: scaleStatus.state === 'OFFLINE' ? '#fca5a5' : scaleStatus.state === 'STABLE' ? '#86efac' : '#fde047' }}></div>
+              <span style={{ color: scaleStatus.state === 'OFFLINE' ? '#fca5a5' : '#fff' }}>Cân: {scaleStatus.state}</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '4px' }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: printerStatus.status === 'OFFLINE' ? '#fca5a5' : '#86efac' }}></div>
+              <span style={{ color: printerStatus.status === 'OFFLINE' ? '#fca5a5' : '#fff' }}>Máy in: {printerStatus.status}</span>
+            </div>
+          </div>
+          <div style={{ display: 'flex', background: 'rgba(255,255,255,0.2)', borderRadius: '6px', overflow: 'hidden' }}>
           <button 
             onClick={() => { setPackType('TRADITIONAL'); scanInputRef.current?.focus(); }}
             style={{ padding: '8px 16px', fontWeight: 'bold', background: packType === 'TRADITIONAL' ? '#fff' : 'transparent', color: packType === 'TRADITIONAL' ? 'var(--primary-color)' : '#fff', border: 'none', cursor: 'pointer', transition: 'all 0.2s' }}
@@ -363,6 +426,7 @@ export default function Pack360Screen({ onBack, initialPackType }) {
           >
             GIẢI PHÓNG
           </button>
+        </div>
         </div>
       </div>
 
@@ -593,9 +657,14 @@ export default function Pack360Screen({ onBack, initialPackType }) {
                       <span style={{ fontSize: '16px', color: '#adb5bd', marginLeft: '5px' }}>kg</span>
                     </div>
                   ) : (
-                    <div style={{ fontSize: '32px', fontWeight: 700, color: 'var(--primary-color)', marginTop: '5px' }}>
-                      {weight !== null ? `${weight}` : '0.00'} <span style={{ fontSize: '16px', color: '#adb5bd' }}>kg</span>
-                    </div>
+                    <>
+                      <div style={{ fontSize: '32px', fontWeight: 700, color: 'var(--primary-color)', marginTop: '5px' }}>
+                        {weight !== null ? `${weight}` : '0.00'} <span style={{ fontSize: '16px', color: '#adb5bd' }}>kg</span>
+                      </div>
+                      <div style={{ marginTop: '5px', fontSize: '12px', fontWeight: 'bold', color: scaleStatus.state === 'STABLE' ? 'var(--success-color)' : 'var(--error-color)' }}>
+                        Trạng thái cân: {scaleStatus.state}
+                      </div>
+                    </>
                   )}
                 </div>
                 <div style={{ flex: 1, background: '#f8f9fa', padding: '20px', borderRadius: '8px', border: '1px solid #dee2e6', textAlign: 'center' }}>
@@ -616,8 +685,8 @@ export default function Pack360Screen({ onBack, initialPackType }) {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginTop: 'auto' }}>
                 <button 
                   onClick={handleComplete} 
-                  disabled={!pack360Id}
-                  style={{ gridColumn: '1 / -1', padding: '18px', fontSize: '18px', fontWeight: 700, background: !pack360Id ? '#ced4da' : 'var(--success-color)', color: '#fff', border: 'none', borderRadius: '6px', cursor: !pack360Id ? 'not-allowed' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', transition: 'all 0.2s' }}
+                  disabled={!pack360Id || (!isManualWeight && (scaleStatus.stale || !scaleStatus.isStable || scaleStatus.state === 'OFFLINE'))}
+                  style={{ gridColumn: '1 / -1', padding: '18px', fontSize: '18px', fontWeight: 700, background: (!pack360Id || (!isManualWeight && (scaleStatus.stale || !scaleStatus.isStable || scaleStatus.state === 'OFFLINE'))) ? '#ced4da' : 'var(--success-color)', color: '#fff', border: 'none', borderRadius: '6px', cursor: (!pack360Id || (!isManualWeight && (scaleStatus.stale || !scaleStatus.isStable || scaleStatus.state === 'OFFLINE'))) ? 'not-allowed' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', transition: 'all 0.2s' }}
                 >
                   <Printer size={24} />
                   {isManualWeight ? 'CHỐT THÙNG (NHẬP TAY) & IN TEM' : 'CÂN IOT & CHỐT THÙNG (IN TEM)'}
@@ -631,7 +700,7 @@ export default function Pack360Screen({ onBack, initialPackType }) {
                 </button>
 
                 <button 
-                  onClick={() => handlePrint(printData)} 
+                  onClick={handleReprint} 
                   disabled={!printData}
                   style={{ padding: '12px', fontSize: '15px', fontWeight: 600, background: !printData ? '#e9ecef' : 'var(--warning-color)', color: !printData ? '#adb5bd' : '#fff', border: 'none', borderRadius: '6px', cursor: !printData ? 'not-allowed' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
                 >

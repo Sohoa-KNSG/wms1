@@ -6,7 +6,8 @@ export const scaleService = {
       return {
         weight: data.weight || 0,
         unit: data.unit || 'KG',
-        isStable: !!data.isStable
+        isStable: !!data.isStable,
+        stale: !!data.stale
       };
   },
 

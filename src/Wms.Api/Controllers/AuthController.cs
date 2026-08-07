@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Wms.Application.Auth.Models;
 using Wms.Application.Auth.Services;
 using Wms.Application.Common.Interfaces;
@@ -23,6 +24,7 @@ public class AuthController : ControllerBase
 
     [HttpPost("login")]
     [AllowAnonymous]
+    [EnableRateLimiting("LoginRateLimit")]
     public async Task<IActionResult> Login([FromBody] LoginRequestDto request, CancellationToken cancellationToken)
     {
         var result = await _authService.LoginAsync(request, cancellationToken);
@@ -75,7 +77,7 @@ public class AuthController : ControllerBase
             return BadRequest(ApiResponse<object>.Error(result.ErrorCode!, result.ErrorMessage!));
         }
 
-        return Ok(CommandResponse.Success("Tạo tài khoản người dùng thành công."));
+        return Ok(ApiResponse<object>.Success(new { password = result.Value }, "Tạo tài khoản người dùng thành công."));
     }
 
     [HttpPost("admin/reset-password")]
@@ -92,7 +94,7 @@ public class AuthController : ControllerBase
             return BadRequest(ApiResponse<object>.Error(result.ErrorCode!, result.ErrorMessage!));
         }
 
-        return Ok(CommandResponse.Success("Đặt lại mật khẩu thành công (Mật khẩu dùng một lần đã được khởi tạo)."));
+        return Ok(ApiResponse<object>.Success(new { password = result.Value }, "Đặt lại mật khẩu thành công."));
     }
 
     [HttpPut("admin/users/{id}/status")]

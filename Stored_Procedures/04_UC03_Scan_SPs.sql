@@ -218,13 +218,13 @@ BEGIN
         RETURN;
     END;
 
-    -- Kiểm tra xem phiếu có dữ liệu ScanLog (VALID hoặc CONFIRMED) không
+    -- Kiểm tra xem phiếu có dữ liệu ScanLog (VALID) không
     IF NOT EXISTS (
         SELECT 1
-        FROM dbo.WMS_UC03_ScanLog
+        FROM dbo.WMS_UC03_ScanLog WITH (UPDLOCK)
         WHERE SoPhieuNhap = @SoPhieuNhap
           AND (MaChiTietPhieu = @MaChiTietPhieu OR @MaChiTietPhieu IS NULL)
-          AND TrangThaiScan IN (N'VALID', N'CONFIRMED')
+          AND TrangThaiScan = N'VALID'
           AND IsDeleted = 0
     )
     BEGIN
@@ -236,7 +236,7 @@ BEGIN
     -- Xử lý các thùng chưa CONFIRMED (TrangThaiScan = N'VALID') nếu có
     IF EXISTS (
         SELECT 1
-        FROM dbo.WMS_UC03_ScanLog
+        FROM dbo.WMS_UC03_ScanLog WITH (UPDLOCK)
         WHERE SoPhieuNhap = @SoPhieuNhap
           AND (MaChiTietPhieu = @MaChiTietPhieu OR @MaChiTietPhieu IS NULL)
           AND TrangThaiScan = N'VALID'
@@ -246,7 +246,7 @@ BEGIN
         -- Kiểm tra xem có thùng VALID nào đã tồn tại trong kho chưa (BR-UC04-07)
         IF EXISTS (
             SELECT 1
-            FROM dbo.WMS_UC03_ScanLog s
+            FROM dbo.WMS_UC03_ScanLog s WITH (UPDLOCK)
             INNER JOIN dbo.tbl_thung60_kho k ON s.MaThung60 = k.id_60
             WHERE s.SoPhieuNhap = @SoPhieuNhap
               AND (s.MaChiTietPhieu = @MaChiTietPhieu OR @MaChiTietPhieu IS NULL)

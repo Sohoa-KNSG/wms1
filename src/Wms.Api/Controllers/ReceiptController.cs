@@ -142,17 +142,31 @@ public class ReceiptController : ControllerBase
     [HttpPost("scan-thung60")]
     public async Task<IActionResult> ScanThung60([FromBody] ScanThung60Request request)
     {
-        var parameters = new
+        if (string.IsNullOrWhiteSpace(request.HandoverNo) ||
+            string.IsNullOrWhiteSpace(request.LineNo) ||
+            string.IsNullOrWhiteSpace(request.Qr60))
         {
-            SoPhieuNhap = request.HandoverNo,
-            MaChiTietPhieu = request.LineNo,
-            MaSanPham = request.ProductCode,
-            MaThung60 = request.Qr60,
-            UserName = _currentUserService.Username
-        };
+            return BadRequest(ApiResponse<object>.Error(WmsErrorCodes.ValidationFailed, "Thiếu thông tin quét mã (HandoverNo, LineNo, Qr60)."));
+        }
 
-        var result = await _spExecutor.QueryFirstOrDefaultAsync<dynamic>("usp_WMS_UC03_ScanThung60", parameters);
-        return Ok(ApiResponse<object>.Success(result));
+        try
+        {
+            var parameters = new
+            {
+                SoPhieuNhap = request.HandoverNo,
+                MaChiTietPhieu = request.LineNo,
+                MaSanPham = request.ProductCode,
+                MaThung60 = request.Qr60,
+                UserName = _currentUserService.Username ?? "SYSTEM_PDA"
+            };
+
+            var result = await _spExecutor.QueryFirstOrDefaultAsync<dynamic>("usp_WMS_UC03_ScanThung60", parameters);
+            return Ok(ApiResponse<object>.Success(result));
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ApiResponse<object>.Error("ERR_SCAN_THUNG60", ex.Message));
+        }
     }
 
     [HttpPost("confirm-nhap-kho")]
@@ -287,12 +301,12 @@ public class ReceiptController : ControllerBase
     {
         var parameters = new
         {
-            ScanLogID = request.ScanLogId,
-            UserName = _currentUserService.Username,
-            CancelReason = string.IsNullOrWhiteSpace(request.Reason) ? "Handover Cancel" : request.Reason
+            SoPhieuNhap = handoverNo,
+            LyDoHuy = string.IsNullOrWhiteSpace(request.Reason) ? "Handover Cancel" : request.Reason,
+            UserName = _currentUserService.Username
         };
 
-        var result = await _spExecutor.QueryFirstOrDefaultAsync<dynamic>("usp_WMS_UC03_CancelScan", parameters);
+        var result = await _spExecutor.QueryFirstOrDefaultAsync<dynamic>("usp_WMS_UC04_2_CancelScan", parameters);
         return Ok(ApiResponse<object>.Success(result));
     }
 }

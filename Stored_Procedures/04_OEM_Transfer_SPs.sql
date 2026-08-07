@@ -54,47 +54,51 @@ BEGIN
     DECLARE @product_code NVARCHAR(50);
     DECLARE @target_product_code NVARCHAR(50);
 
-    SELECT @status = status, @old_oem_order_no = oem_order_no
-    FROM pack360_header
-    WHERE pack360_id = @pack360_id OR pack360_qr = @pack360_id;
-
-    IF @status IS NULL
-    BEGIN
-        RAISERROR(N'Không tìm thấy Kiện 360', 16, 1);
-        RETURN;
-    END
-
-    IF @status IN ('ALLOCATED', 'PICKED', 'STAGED', 'SHIPPED')
-    BEGIN
-        RAISERROR(N'Kiện 360 đang trong quá trình xuất kho, không được chuyển đơn OEM', 16, 1);
-        RETURN;
-    END
-
-    SELECT @target_product_code = product_code
-    FROM tbl_oem_orders
-    WHERE oem_order_no = @target_oem_order_no;
-
-    IF @target_product_code IS NULL
-    BEGIN
-        RAISERROR(N'Đơn hàng OEM mới không tồn tại trong hệ thống', 16, 1);
-        RETURN;
-    END
-
-    SELECT TOP 1 @product_code = t.product_code
-    FROM pack360_unit u
-    INNER JOIN tbl_thung60_kho t ON u.id_60 = t.id_60
-    WHERE u.pack360_id = @pack360_id AND u.is_current = 1;
-
-    IF @product_code IS NOT NULL AND @product_code <> @target_product_code
-    BEGIN
-        RAISERROR(N'Sản phẩm của Kiện 360 không khớp với sản phẩm của đơn OEM mới', 16, 1);
-        RETURN;
-    END
-
     DECLARE @reqId NVARCHAR(100) = 'REQ-TRF-OEM-' + CAST(DATEDIFF(SECOND, '1970-01-01', GETDATE()) AS NVARCHAR(50));
 
     BEGIN TRY
         BEGIN TRANSACTION;
+
+        SELECT @status = status, @old_oem_order_no = oem_order_no
+        FROM pack360_header WITH (UPDLOCK)
+        WHERE pack360_id = @pack360_id OR pack360_qr = @pack360_id;
+
+        IF @status IS NULL
+        BEGIN
+            RAISERROR(N'Không tìm thấy Kiện 360', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN;
+        END
+
+        IF @status IN ('ALLOCATED', 'PICKED', 'STAGED', 'SHIPPED')
+        BEGIN
+            RAISERROR(N'Kiện 360 đang trong quá trình xuất kho, không được chuyển đơn OEM', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN;
+        END
+
+        SELECT @target_product_code = product_code
+        FROM tbl_oem_orders
+        WHERE oem_order_no = @target_oem_order_no;
+
+        IF @target_product_code IS NULL
+        BEGIN
+            RAISERROR(N'Đơn hàng OEM mới không tồn tại trong hệ thống', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN;
+        END
+
+        SELECT TOP 1 @product_code = t.product_code
+        FROM pack360_unit u
+        INNER JOIN tbl_thung60_kho t ON u.id_60 = t.id_60
+        WHERE u.pack360_id = @pack360_id AND u.is_current = 1;
+
+        IF @product_code IS NOT NULL AND @product_code <> @target_product_code
+        BEGIN
+            RAISERROR(N'Sản phẩm của Kiện 360 không khớp với sản phẩm của đơn OEM mới', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN;
+        END
 
         -- 1. Cập nhật header Kiện 360
         UPDATE pack360_header

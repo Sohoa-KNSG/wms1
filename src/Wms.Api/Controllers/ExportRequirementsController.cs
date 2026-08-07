@@ -254,71 +254,87 @@ public class ExportRequirementsController : ControllerBase
             string guardId = !string.IsNullOrWhiteSpace(request.GuardId) ? request.GuardId : "1";
             string deliveryLocation = !string.IsNullOrWhiteSpace(request.DeliveryLocation) ? request.DeliveryLocation : "Kho Thành Phẩm";
 
-            string firstDetailCustomer = request.Details.FirstOrDefault()?.CustomerName 
-                ?? request.Details.FirstOrDefault()?.Customer_Name 
-                ?? "Khách Hàng KNSG";
+            decimal? maxWeight = await connection.QueryFirstOrDefaultAsync<decimal?>(
+                "SELECT max_weight_kg FROM tbl_trucks WHERE license_plate = @truckPlate", new { truckPlate }, transaction);
 
-            await connection.ExecuteAsync(@"
-                INSERT INTO delivery_note_header (
-                    delivery_note_no, license_plate, driver_id, guard_id, customer_name, delivery_location, status, created_by, created_at
-                ) VALUES (
-                    @noteNo, @truckPlate, @driverId, @guardId, @firstDetailCustomer, @deliveryLocation, 'NEW', @actor, GETDATE()
-                )", new
+            var totalRequestedWeight = request.Details.Sum(d => d.TotalWeightKg > 0 ? d.TotalWeightKg : d.Total_Weight_Kg);
+            if (maxWeight.HasValue && totalRequestedWeight > maxWeight.Value)
             {
-                noteNo,
-                truckPlate,
-                driverId,
-                guardId,
-                firstDetailCustomer,
-                deliveryLocation,
-                actor
-            }, transaction);
+                transaction.Rollback();
+                return BadRequest(ApiResponse<object>.Error(WmsErrorCodes.ValidationFailed, $"Tổng tải trọng hàng ({totalRequestedWeight}kg) vượt quá tải trọng cho phép của xe {truckPlate} ({maxWeight.Value}kg)."));
+            }
 
-            int lineNo = 1;
-            foreach (var d in request.Details)
+            var customerGroups = request.Details.GroupBy(d => !string.IsNullOrWhiteSpace(d.CustomerName) ? d.CustomerName : (!string.IsNullOrWhiteSpace(d.Customer_Name) ? d.Customer_Name : "Khách Hàng KNSG")).ToList();
+            var createdNotes = new List<string>();
+
+            foreach (var group in customerGroups)
             {
-                string customerName = !string.IsNullOrWhiteSpace(d.CustomerName) ? d.CustomerName : (!string.IsNullOrWhiteSpace(d.Customer_Name) ? d.Customer_Name : "Khách Hàng KNSG");
-                string productCode = !string.IsNullOrWhiteSpace(d.ProductCode) ? d.ProductCode : (!string.IsNullOrWhiteSpace(d.Product_Code) ? d.Product_Code : "");
-                string channelCode = !string.IsNullOrWhiteSpace(d.ChannelCode) ? d.ChannelCode : (!string.IsNullOrWhiteSpace(d.Channel_Code) ? d.Channel_Code : "");
-                decimal qty = d.Qty > 0 ? d.Qty : (d.Requested_Qty > 0 ? d.Requested_Qty : 0);
-                int boxLarge = d.BoxLarge > 0 ? d.BoxLarge : d.Box_Large;
-                int boxSmall = d.BoxSmall > 0 ? d.BoxSmall : d.Box_Small;
-                int boxVirtual = d.BoxVirtual > 0 ? d.BoxVirtual : d.Box_Virtual;
-                decimal totalWeightKg = d.TotalWeightKg > 0 ? d.TotalWeightKg : d.Total_Weight_Kg;
+                string customerName = group.Key;
+                string currentNoteNo = "PXK-" + DateTime.Now.ToString("yyyyMMddHHmmssfff") + "-" + createdNotes.Count;
 
                 await connection.ExecuteAsync(@"
-                    INSERT INTO delivery_note_detail (
-                        delivery_note_no, line_no, customer_name, product_code, channel_code, qty, box_large, box_small, box_virtual, total_weight_kg
+                    INSERT INTO delivery_note_header (
+                        delivery_note_no, license_plate, driver_id, guard_id, customer_name, delivery_location, status, created_by, created_at
                     ) VALUES (
-                        @noteNo, @lineNo, @customerName, @productCode, @channelCode, @qty, @boxLarge, @boxSmall, @boxVirtual, @totalWeightKg
+                        @currentNoteNo, @truckPlate, @driverId, @guardId, @customerName, @deliveryLocation, 'NEW', @actor, GETDATE()
                     )", new
                 {
-                    noteNo,
-                    lineNo = lineNo++,
+                    currentNoteNo,
+                    truckPlate,
+                    driverId,
+                    guardId,
                     customerName,
-                    productCode,
-                    channelCode,
-                    qty,
-                    boxLarge,
-                    boxSmall,
-                    boxVirtual,
-                    totalWeightKg
+                    deliveryLocation,
+                    actor
                 }, transaction);
 
-                // Cập nhật số lượng đã phân bổ xe vào export_request_detail
-                await connection.ExecuteAsync(@"
-                    UPDATE d
-                    SET allocated_qty = ISNULL(allocated_qty, 0) + @qty
-                    FROM export_request_detail d
-                    JOIN export_request_header h ON d.request_no = h.request_no
-                    WHERE d.product_code = @productCode 
-                      AND d.channel_code = @channelCode 
-                      AND h.status IN ('NEW', 'PARTIAL')", new
+                int lineNo = 1;
+                foreach (var d in group)
                 {
-                    productCode,
-                    channelCode,
-                    qty
-                }, transaction);
+                    string productCode = !string.IsNullOrWhiteSpace(d.ProductCode) ? d.ProductCode : (!string.IsNullOrWhiteSpace(d.Product_Code) ? d.Product_Code : "");
+                    string channelCode = !string.IsNullOrWhiteSpace(d.ChannelCode) ? d.ChannelCode : (!string.IsNullOrWhiteSpace(d.Channel_Code) ? d.Channel_Code : "");
+                    decimal qty = d.Qty > 0 ? d.Qty : (d.Requested_Qty > 0 ? d.Requested_Qty : 0);
+                    int boxLarge = d.BoxLarge > 0 ? d.BoxLarge : d.Box_Large;
+                    int boxSmall = d.BoxSmall > 0 ? d.BoxSmall : d.Box_Small;
+                    int boxVirtual = d.BoxVirtual > 0 ? d.BoxVirtual : d.Box_Virtual;
+                    decimal totalWeightKg = d.TotalWeightKg > 0 ? d.TotalWeightKg : d.Total_Weight_Kg;
+
+                    await connection.ExecuteAsync(@"
+                        INSERT INTO delivery_note_detail (
+                            delivery_note_no, line_no, customer_name, product_code, channel_code, qty, box_large, box_small, box_virtual, total_weight_kg
+                        ) VALUES (
+                            @currentNoteNo, @lineNo, @customerName, @productCode, @channelCode, @qty, @boxLarge, @boxSmall, @boxVirtual, @totalWeightKg
+                        )", new
+                    {
+                        currentNoteNo,
+                        lineNo = lineNo++,
+                        customerName,
+                        productCode,
+                        channelCode,
+                        qty,
+                        boxLarge,
+                        boxSmall,
+                        boxVirtual,
+                        totalWeightKg
+                    }, transaction);
+
+                    // Cập nhật số lượng đã phân bổ xe vào export_request_detail
+                    await connection.ExecuteAsync(@"
+                        UPDATE d
+                        SET allocated_qty = ISNULL(allocated_qty, 0) + @qty
+                        FROM export_request_detail d
+                        JOIN export_request_header h ON d.request_no = h.request_no
+                        WHERE d.product_code = @productCode 
+                          AND d.channel_code = @channelCode 
+                          AND h.status IN ('NEW', 'PARTIAL')", new
+                    {
+                        productCode,
+                        channelCode,
+                        qty
+                    }, transaction);
+                }
+
+                createdNotes.Add(currentNoteNo);
             }
 
             // Cập nhật trạng thái Header Nhu Cầu thành PARTIAL hoặc PROCESSED
@@ -336,7 +352,7 @@ public class ExportRequirementsController : ControllerBase
                 WHERE h.status IN ('NEW', 'PARTIAL')", null, transaction);
 
             transaction.Commit();
-            return Ok(ApiResponse<object>.Success(new { delivery_note_no = noteNo }, $"Tạo thành công phiếu xuất kho {noteNo}."));
+            return Ok(ApiResponse<object>.Success(new { delivery_notes = createdNotes }, $"Tạo thành công {createdNotes.Count} phiếu xuất kho."));
         }
         catch (Exception)
         {

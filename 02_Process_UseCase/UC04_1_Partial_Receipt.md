@@ -201,14 +201,14 @@ BEGIN
         );
 
         -- 6. Hạch toán Sổ Cái Kép: Header (stock_transaction_book)
-        DECLARE @TxId NVARCHAR(50) = 'TX-IN-LE-' + @SoPhieuNhap + '-' + RIGHT('0' + CAST(DATEPART(HOUR, GETDATE()) AS NVARCHAR), 2) + RIGHT('0' + CAST(DATEPART(MINUTE, GETDATE()) AS NVARCHAR), 2) + RIGHT('0' + CAST(DATEPART(SECOND, GETDATE()) AS NVARCHAR), 2);
+        DECLARE @TxId NVARCHAR(50) = 'TX-IN-LE-' + @SoPhieuNhap + '-' + RIGHT('0' + CAST(DATEPART(HOUR, GETDATE()) AS NVARCHAR), 2) + RIGHT('0' + CAST(DATEPART(MINUTE, GETDATE()) AS NVARCHAR), 2) + RIGHT('0' + CAST(DATEPART(SECOND, GETDATE()) AS NVARCHAR), 2) + RIGHT('00' + CAST(DATEPART(MILLISECOND, GETDATE()) AS NVARCHAR), 3);
         
         INSERT INTO dbo.stock_transaction_book (transaction_id, transaction_type, document_no, partner_unit, partner_name, posted_by)
         VALUES (@TxId, 'RECEIPT_PARTIAL', @SoPhieuNhap, @PartnerUnit, @PartnerName, @UserName);
 
         -- 7. Hạch toán Sổ Cái Kép: Detail cấp Thùng (inventory_ledger)
-        INSERT INTO dbo.inventory_ledger (ledger_date, id_60, product_code, transaction_id, source_document_no, quantity_change, new_stock_type)
-        VALUES (CAST(GETDATE() AS DATE), @VirtualId60, @MaSanPham, @TxId, @SoPhieuNhap, @SoLuongLe, 'UNRESTRICTED');
+        INSERT INTO dbo.inventory_ledger (ledger_date, id_60, product_code, transaction_id, source_document_no, quantity_change, new_stock_type, old_stock_type)
+        VALUES (CAST(GETDATE() AS DATE), @VirtualId60, @MaSanPham, @TxId, @SoPhieuNhap, @SoLuongLe, 'UNRESTRICTED', NULL);
 
         -- 8. Hạch toán Sổ Cái Kép: Detail cấp Hàng Hóa (item_ledger)
         INSERT INTO dbo.item_ledger (ledger_date, product_code, transaction_id, source_document_no, total_quantity_change)
@@ -390,6 +390,7 @@ erDiagram
         string transaction_id FK
         decimal quantity_change "SoLuongLe"
         string new_stock_type "'UNRESTRICTED'"
+        string old_stock_type "NULL"
     }
 
     item_ledger {

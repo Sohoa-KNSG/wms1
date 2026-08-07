@@ -4,6 +4,69 @@ Lịch sử thay đổi và cập nhật của dự án WMS.
 
 ---
 
+- **Thời gian**: 2026-08-07
+- **Tên Task/Milestone**: Fix UAT Bugs cho UC05 (Mã QR, Sổ cái, Giao diện)
+- **Nội dung thay đổi**:
+  - SQL: Cập nhật định dạng mã QR kiện 360 trong `usp_Pack360_Complete` thành `{Kênh}-{Mã_SP}-{DDMMYYYY}-{Sequence}`.
+  - SQL: Bổ sung logic ghi nhận vào Sổ cái kép (`stock_transaction_book` loại `PACK360_CREATE`) khi chốt kiện.
+  - Backend: Chuyển đổi lệnh TSPL sang sử dụng `QRCODE` chuyên dụng thay vì in chuỗi dạng văn bản (TEXT).
+  - Frontend: Thêm hiển thị báo trạng thái kết nối thời gian thực cho Cân điện tử và Máy in ở góc phải của màn hình `Pack360Screen`.
+  - Raspberry Pi: Chuẩn hóa lại các tuyến (API routes) `/scale/weight` và `/printer/print` trong `server.js` để đồng bộ hoàn toàn với Frontend.
+
+---
+
+- **Thời gian**: 2026-08-07
+- **Tên Task/Milestone**: Database and Backend (C#) changes for UC05 Raspberry Pi Integration
+- **Nội dung thay đổi**:
+  - SQL: Thêm các cột `weight_source`, `print_job_id`, `print_status` vào bảng `pack360_header`.
+  - SQL: Tạo bảng audit `pack360_reprint_audit` và stored procedure `usp_Pack360_Reprint_Audit`. Cập nhật `usp_Pack360_Complete` để lưu thông tin mới.
+  - Backend: Cập nhật `Pack360Controller` để nhận request mới có `weight_source`.
+  - Backend: Thêm endpoint `POST /api/v1/pack360/{id}/reprint` để xử lý in lại mã vạch thông qua stored procedure.
+  - Backend: Tạo helper format dữ liệu TSPL và áp dụng Authorization Policies cho toàn bộ API trong `Pack360Controller`.
+
+- **Thời gian**: 2026-08-07
+- **Tên Task/Milestone**: Refactor Frontend UC05 Pack360
+- **Nội dung thay đổi**:
+  - Cập nhật cấu hình Device Agent (PI_BRIDGE_URL) và Token xác thực.
+  - Tích hợp gửi `X-Device-Agent-Token` qua `deviceClient`.
+  - Cải thiện `Pack360Screen`: hỗ trợ hiển thị trạng thái cân IoT (STABLE, STALE, OFFLINE), nhập tay cân nặng (kèm lý do), ẩn hardcoded TSPL, xử lý lỗi in (Hiển thị nút in lại) thay vì chặn luồng chốt kiện.
+
+- **Thời gian**: 2026-08-06
+- **Tên Task/Milestone**: Fix Bug Nhóm 4 (UC11 -> UC15 Outbound & Logistics)
+- **Nội dung thay đổi**:
+  - SQL: Thêm `WITH (UPDLOCK)` cho SP Putaway Pallet (UC11).
+  - SQL/C#: Tạo SP `usp_WMS_UC12_GetUniversalDossier` và refactor `TraceController.cs` gọi `QueryMultipleAsync` tránh Inline SQL (UC12).
+  - SQL/C#: Tạo SP `usp_StockType_Change` (Whitelist validation, tự động xóa Block Reason) và refactor `StockTypeChangeController.cs` (UC13, UC14).
+  - C#: Sửa logic API `CreateDeliveryNotes`, nhóm hóa phiếu xuất theo Khách hàng và validate tải trọng xe (UC15).
+
+- **Thời gian**: 2026-08-06
+- **Tên Task/Milestone**: Fix Bug Nhóm 3 (UC05 -> UC10 Packaging & Pallet)
+- **Nội dung thay đổi**:
+  - SQL: Thắt chặt Data Logic, Idempotency và Sổ Cái Kép trong SP Pack360 (UC05, UC10).
+  - SQL: Dời SELECT UPDLOCK vào trong BEGIN TRAN ở SP Chuyển Đơn OEM (UC08).
+  - C#: Sửa lổ hổng API Update Đơn OEM, bổ sung check mã sản phẩm hợp lệ (UC07).
+
+- **Thời gian**: 2026-08-06
+- **Tên Task/Milestone**: Fix Bug Nhóm 2 (UC02 Receive Data, UC03 Scan Inbound)
+- **Nội dung thay đổi**:
+  - SQL: Sửa lỗi thiếu Soft-Lock trên cả `tbl_thung60_kho` và `WMS_UC03_ScanLog` trong quá trình Update/Unmap mã đơn OEM.
+  - SQL: Thắt chặt logic Filter `MaHang` khi Search Đơn OEM.
+  - Backend: Bổ sung Validation an toàn cho API `ScanThung60` và fallback `UserName`.
+
+- **Thời gian**: 2026-08-06
+- **Tên Task/Milestone**: Fix Bug Nhóm 1 (UC01 Login, UC23 User Admin)
+- **Nội dung thay đổi**:
+  - Backend: Bổ sung Rate Limiting API chống Brute force, sửa logic trả về mật khẩu ngẫu nhiên.
+  - Frontend: Xử lý redirect ép đổi mật khẩu, sửa lỗi hiển thị mật khẩu tĩnh "123456".
+  - Tài liệu: Đồng bộ tên trường `user_code` thành `username` ở UC23.
+
+- **Thời gian**: 2026-08-06
+- **Tên Task/Milestone**: Fix Bug UC04 (Pending Handover, Partial Receipt, Cancel Scan)
+- **Nội dung thay đổi**:
+  - Sửa lỗi Controller `CancelHandoverScan` gọi sai SP và sai tham số.
+  - Bổ sung Fail-fast check và `UPDLOCK` trong SP `usp_WMS_UC04_ConfirmNhapKho`.
+  - Cập nhật tài liệu thiết kế UC04.1 (đồng bộ Transaction ID có Millisecond và thêm `old_stock_type` vào `inventory_ledger`).
+
 - **Thời gian**: 2026-08-06
 - **Tên Task/Milestone**: Thiết lập Git, GitHub & Cập nhật luật AI
 - **Nội dung thay đổi**:
@@ -110,3 +173,7 @@ Lịch sử thay đổi và cập nhật của dự án WMS.
 - **Nội dung thay đổi**:
   - Tạo các file cấu hình cơ bản (`cau_hinh_sql.txt`, `mock_data.sql`).
   - Bổ sung tài liệu AI Antigravity Guide để hỗ trợ lập trình Agent.
+
+## 2026-08-07
+- **Tên Task/Milestone**: Build wms-edge-bridge
+- **Nội dung thay đổi**: Khởi tạo project Node.js `wms-edge-bridge` cho Raspberry Pi, bao gồm Express server, scaleService đọc USB serial, printService gửi lệnh in TCP và script cài đặt systemd.

@@ -28,7 +28,7 @@ BEGIN
     
     -- Kiểm tra Trạng thái Pallet (Phải là ACTIVE hoặc CREATED, vì đôi khi Pallet vừa lập xong)
     DECLARE @PalletStatus NVARCHAR(30);
-    SELECT @PalletStatus = status FROM dbo.pallet WHERE pallet_id = @PalletId;
+    SELECT @PalletStatus = status FROM dbo.pallet WITH (UPDLOCK) WHERE pallet_id = @PalletId;
     
     IF @PalletStatus IS NULL
     BEGIN

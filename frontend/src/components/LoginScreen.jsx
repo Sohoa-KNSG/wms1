@@ -21,8 +21,13 @@ export default function LoginScreen() {
     const cleanUsername = username.trim().toLowerCase();
 
     try {
-      await login(cleanUsername, password);
-      navigate(ROUTES.HOME);
+      const response = await login(cleanUsername, password);
+      const resData = response.data || response;
+      if (resData.user && resData.user.must_change_password) {
+        navigate(ROUTES.CHANGE_PASSWORD);
+      } else {
+        navigate(ROUTES.HOME);
+      }
     } catch (err) {
       // SEC-03: Không dùng demo fallback. Hiển thị lỗi thật từ API.
       setError(err.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại tài khoản hoặc mật khẩu.');

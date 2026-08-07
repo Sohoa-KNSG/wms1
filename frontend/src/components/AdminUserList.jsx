@@ -60,12 +60,13 @@ export default function AdminUserList({ onBack }) {
     }
     try {
       setLoading(true);
-      await adminApi.createUser({
+      const res = await adminApi.createUser({
         username: newUsername,
         fullName: newFullName,
         roles: newRoles
       });
-      setSuccess(`Tạo tài khoản ${newUsername} thành công! Mật khẩu mặc định: 123456`);
+      const generatedPwd = res?.data?.password || res?.password || '123456';
+      setSuccess(`Tạo tài khoản ${newUsername} thành công! Mật khẩu khởi tạo: ${generatedPwd}`);
       setShowCreateModal(false);
       setNewUsername('');
       setNewFullName('');
@@ -107,8 +108,9 @@ export default function AdminUserList({ onBack }) {
   const handleResetPassword = async (userId, username) => {
     if (!window.confirm(`Xác nhận reset mật khẩu người dùng ${username} về mặc định 123456?`)) return;
     try {
-      await adminApi.resetPassword({ userId });
-      setSuccess(`Reset mật khẩu cho ${username} thành công. Mật khẩu mới: 123456`);
+      const res = await adminApi.resetPassword({ userId });
+      const generatedPwd = res?.data?.password || res?.password || '123456';
+      setSuccess(`Reset mật khẩu cho ${username} thành công. Mật khẩu mới: ${generatedPwd}`);
     } catch (err) {
       setError(err.message || 'Lỗi reset mật khẩu.');
     }

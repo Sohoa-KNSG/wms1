@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json;
 using Wms.Application.Common.Models;
 using Wms.Domain.Constants;
+using Microsoft.Data.SqlClient;
 
 namespace Wms.Api.Middleware;
 
@@ -24,6 +25,15 @@ public class GlobalExceptionMiddleware
         {
             await _next(context);
         }
+        catch (SqlException sqlEx) when (sqlEx.Number == 50000)
+        {
+            context.Response.ContentType = "application/json";
+            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+            
+            var response = ApiResponse<object>.Error(WmsErrorCodes.ValidationFailed, sqlEx.Message);
+            var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+            await context.Response.WriteAsync(JsonSerializer.Serialize(response, options));
+        }
         catch (Exception ex)
         {
             var requestId = context.Items["RequestId"]?.ToString();
@@ -38,7 +48,7 @@ public class GlobalExceptionMiddleware
                 ? $"Lỗi hệ thống: {ex.Message}"
                 : "Đã xảy ra lỗi hệ thống. Vui lòng liên hệ quản trị viên với Trace ID.";
 
-            var response = CommandResponse.Error(WmsErrorCodes.InternalServerError, userMessage, requestId, traceId);
+            var response = ApiResponse<object>.Error(WmsErrorCodes.InternalServerError, userMessage);
             
             var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
             await context.Response.WriteAsync(JsonSerializer.Serialize(response, options));

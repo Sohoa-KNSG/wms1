@@ -75,80 +75,21 @@ public class StockTypeChangeController : ControllerBase
             int lineNo = 1;
             foreach (var item in request.Items)
             {
-                var carton = await connection.QueryFirstOrDefaultAsync<dynamic>(@"
-                    SELECT id_60, product_code, current_qty, stock_type, block_reason_code, status 
-                    FROM tbl_thung60_kho WITH (UPDLOCK, HOLDLOCK)
-                    WHERE id_60 = @Id60 OR qr_60 = @Id60",
-                    new { item.Id60 }, transaction);
-
-                if (carton == null)
-                {
-                    transaction.Rollback();
-                    return NotFound(ApiResponse<object>.Error(WmsErrorCodes.NotFound, $"Không tìm thấy thùng 60 có mã: {item.Id60}"));
-                }
-
-                string currentStatus = (string)carton.status;
-                if (currentStatus == "PICKED" || currentStatus == "STAGED" || currentStatus == "DISPATCHED")
-                {
-                    transaction.Rollback();
-                    return BadRequest(ApiResponse<object>.Error(WmsErrorCodes.InvalidState, $"Thùng {item.Id60} đang ở trạng thái {currentStatus}, không thể đổi stock type."));
-                }
-
-                string oldStockType = (string)carton.stock_type;
-                string oldReason = (string)carton.block_reason_code ?? "";
-                string newStockType = request.NewStockType.ToUpper();
-                string newReason = request.ReasonCode;
-
-                await connection.ExecuteAsync(@"
-                    INSERT INTO stock_type_change_request_detail (
-                        request_no, line_no, id_60, product_code, qty, old_stock_type, new_stock_type, old_block_reason_code, new_block_reason_code
-                    ) VALUES (
-                        @requestNo, @lineNo, @Id60, @ProductCode, @Qty, @oldStockType, @newStockType, @oldReason, @newReason
-                    )", new
-                {
-                    requestNo,
-                    lineNo = lineNo++,
-                    Id60 = (string)carton.id_60,
-                    ProductCode = (string)carton.product_code,
-                    Qty = (decimal)carton.current_qty,
-                    oldStockType,
-                    newStockType,
-                    oldReason,
-                    newReason
-                }, transaction);
-
-                await connection.ExecuteAsync(@"
-                    UPDATE tbl_thung60_kho SET
-                        stock_type = @newStockType,
-                        block_reason_code = @newReason,
-                        updated_at = GETDATE()
-                    WHERE id_60 = @Id60",
-                    new { newStockType, newReason, Id60 = (string)carton.id_60 }, transaction);
-
-                await connection.ExecuteAsync(@"
-                    INSERT INTO thung60_event (event_id, id_60, event_type, old_stock_type, new_stock_type, message, performed_by, performed_at, request_id)
-                    VALUES (@EventId, @Id60, 'STOCK_TYPE_CHANGE', @oldStockType, @newStockType, @newReason, @actor, GETDATE(), @requestId)",
-                    new { EventId = "EVT-" + Guid.NewGuid().ToString("N").Substring(0, 10), Id60 = (string)carton.id_60, oldStockType, newStockType, newReason, actor, requestId }, transaction);
-
-                var txId = "TX-" + Guid.NewGuid().ToString("N").Substring(0, 10);
-                
-                await connection.ExecuteAsync(@"
-                    INSERT INTO stock_transaction_book (transaction_id, transaction_type, document_no, posted_by, posted_at)
-                    VALUES (@TxId, 'STOCK_RECLASSIFY', @requestNo, @actor, GETDATE())",
-                    new { TxId = txId, requestNo, actor }, transaction);
-
-                await connection.ExecuteAsync(@"
-                    INSERT INTO inventory_ledger (ledger_date, id_60, product_code, transaction_id, source_document_no, quantity_change, old_stock_type, new_stock_type, created_at)
-                    VALUES (CAST(GETDATE() AS DATE), @Id60, @ProductCode, @TxId, @requestNo, 0, @oldStockType, @newStockType, GETDATE())",
+                await connection.ExecuteAsync(
+                    "dbo.usp_StockType_Change",
                     new
                     {
-                        Id60 = (string)carton.id_60,
-                        ProductCode = (string)carton.product_code,
-                        TxId = txId,
                         requestNo,
-                        oldStockType,
-                        newStockType
-                    }, transaction);
+                        lineNo = lineNo++,
+                        id60 = item.Id60,
+                        changeType = request.ChangeType.ToString().ToUpper(),
+                        newStockType = request.NewStockType.ToUpper(),
+                        newReason = request.ReasonCode,
+                        actor,
+                        requestId
+                    },
+                    transaction,
+                    commandType: System.Data.CommandType.StoredProcedure);
             }
 
             transaction.Commit();

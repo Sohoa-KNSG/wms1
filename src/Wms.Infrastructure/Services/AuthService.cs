@@ -202,11 +202,11 @@ public class AuthService : IAuthService
         return Result<IEnumerable<UserDto>>.Success(userDtos);
     }
 
-    public async Task<Result> CreateUserAsync(CreateUserRequestDto request, CancellationToken cancellationToken = default)
+    public async Task<Result<string>> CreateUserAsync(CreateUserRequestDto request, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.FullName))
         {
-            return Result.Failure(WmsErrorCodes.ValidationFailed, "Vui lòng điền đầy đủ thông tin.");
+            return Result<string>.Failure(WmsErrorCodes.ValidationFailed, "Vui lòng điền đầy đủ thông tin.");
         }
 
         // Tự động sinh mật khẩu ngẫu nhiên an toàn (không dùng '123456' mặc định cố định)
@@ -221,10 +221,10 @@ public class AuthService : IAuthService
             Roles = request.Roles != null ? string.Join(",", request.Roles) : ""
         }, cancellationToken);
 
-        return Result.Success();
+        return Result<string>.Success(randomDefaultPassword);
     }
 
-    public async Task<Result> ResetPasswordAsync(string adminUsername, ResetPasswordRequestDto request, string? clientIp = null, string? userAgent = null, CancellationToken cancellationToken = default)
+    public async Task<Result<string>> ResetPasswordAsync(string adminUsername, ResetPasswordRequestDto request, string? clientIp = null, string? userAgent = null, CancellationToken cancellationToken = default)
     {
         string randomResetPassword = "Reset@" + Guid.NewGuid().ToString("N")[..8];
         string newPasswordHash = BCrypt.Net.BCrypt.HashPassword(randomResetPassword);
@@ -238,7 +238,7 @@ public class AuthService : IAuthService
             UserAgent = userAgent
         }, cancellationToken);
 
-        return Result.Success();
+        return Result<string>.Success(randomResetPassword);
     }
 
     public async Task<Result> UpdateUserStatusAsync(string currentUserId, string targetUserId, UpdateUserStatusRequestDto request, CancellationToken cancellationToken = default)

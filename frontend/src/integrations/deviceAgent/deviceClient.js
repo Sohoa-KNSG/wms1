@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { getDeviceAgentUrl } from './deviceConfig.js';
+import { getDeviceAgentUrl, getDeviceAgentToken } from './deviceConfig.js';
 
 export const deviceClient = axios.create({
   timeout: 5000,
@@ -10,6 +10,10 @@ export const deviceClient = axios.create({
 
 deviceClient.interceptors.request.use((config) => {
   config.baseURL = getDeviceAgentUrl();
+  const token = getDeviceAgentToken();
+  if (token) {
+    config.headers['X-Device-Agent-Token'] = token;
+  }
   return config;
 });
 

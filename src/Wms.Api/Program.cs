@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
 using Serilog;
 using Wms.Api.Middleware;
 using Wms.Application.Auth.Services;
@@ -162,6 +164,19 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+// Thêm cấu hình Rate Limiting (UC01 - Chống Brute force)
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddFixedWindowLimiter("LoginRateLimit", opt =>
+    {
+        opt.PermitLimit = 20;
+        opt.Window = TimeSpan.FromMinutes(1);
+        opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        opt.QueueLimit = 0;
+    });
+});
+
 var app = builder.Build();
 
 // 8. Configure Middleware Pipeline
@@ -175,6 +190,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("WmsCorsPolicy");
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 

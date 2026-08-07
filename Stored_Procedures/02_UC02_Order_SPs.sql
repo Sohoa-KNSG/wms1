@@ -39,9 +39,12 @@ BEGIN
             SoLuongDonHang
         FROM dbo.vw_WMS_DonHangOEM_ChiTiet
         WHERE 
-            MaDonHang LIKE '%' + @Keyword + '%'
-            OR MaKhachHang LIKE '%' + @Keyword + '%'
-            OR MaPO LIKE '%' + @Keyword + '%'
+            MaHang = @Keyword
+            AND (
+                MaDonHang LIKE '%' + @Keyword + '%'
+                OR MaKhachHang LIKE '%' + @Keyword + '%'
+                OR MaPO LIKE '%' + @Keyword + '%'
+            )
         ORDER BY MaDonHang, MaHang;
     END
 END;
@@ -66,6 +69,15 @@ BEGIN
            AND NOT EXISTS (SELECT 1 FROM dbo.vw_WMS_DonHangOEM_ChiTiet WHERE MaDonHang = @MaDonHang AND MaHang = @MaSanPham)
         BEGIN
             RAISERROR(N'ERR_UC02_PRODUCT_MISMATCH: Mã sản phẩm [%s] không thuộc Đơn hàng OEM [%s] trên hệ thống ERP.', 16, 1, @MaSanPham, @MaDonHang);
+            ROLLBACK TRANSACTION;
+            RETURN;
+        END;
+
+        -- Check Soft-Lock: Không cho phép đổi mã Đơn hàng nếu đã phát sinh quét tem (ở kho tạm hoặc chính thức)
+        IF EXISTS (SELECT 1 FROM dbo.tbl_thung60_kho WITH (NOLOCK) WHERE production_handover_no = @SoPhieuNhap AND product_code = @MaSanPham)
+           OR EXISTS (SELECT 1 FROM dbo.WMS_UC03_ScanLog WITH (NOLOCK) WHERE SoPhieuNhap = @SoPhieuNhap AND MaSanPham = @MaSanPham AND IsDeleted = 0 AND TrangThaiScan IN ('VALID', 'CONFIRMED'))
+        BEGIN
+            RAISERROR(N'ERR_UC02_LOCKED: Dòng phiếu đã phát sinh quét tem nhập kho, không được phép sửa mã đơn.', 16, 1);
             ROLLBACK TRANSACTION;
             RETURN;
         END;
@@ -141,6 +153,10 @@ BEGIN
         IF EXISTS (
             SELECT 1 FROM dbo.tbl_thung60_kho WITH (NOLOCK)
             WHERE production_handover_no = @SoPhieuNhap AND product_code = @MaSanPham
+        )
+        OR EXISTS (
+            SELECT 1 FROM dbo.WMS_UC03_ScanLog WITH (NOLOCK)
+            WHERE SoPhieuNhap = @SoPhieuNhap AND MaSanPham = @MaSanPham AND IsDeleted = 0 AND TrangThaiScan IN ('VALID', 'CONFIRMED')
         )
         BEGIN
             RAISERROR(N'ERR_UC02_LOCKED: Dòng phiếu đã phát sinh quét tem nhập kho, không được phép hủy gán mã đơn.', 16, 1);

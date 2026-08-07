@@ -107,6 +107,16 @@ public class OemOrdersController : ControllerBase
                     return BadRequest(ApiResponse<object>.Error(WmsErrorCodes.DuplicateRecord, $"Đơn hàng {order.OemOrderNo} - SP {order.ProductCode} (Đợt {order.BatchNo}) đã tồn tại"));
                 }
 
+                var productExists = await connection.ExecuteScalarAsync<int>(@"
+                    SELECT COUNT(1) FROM vw_WMS_Product WHERE MFInvtID = @ProductCode",
+                    new { order.ProductCode }, transaction);
+
+                if (productExists == 0)
+                {
+                    transaction.Rollback();
+                    return BadRequest(ApiResponse<object>.Error(WmsErrorCodes.NotFound, $"Mã sản phẩm {order.ProductCode} không tồn tại trong hệ thống ERP."));
+                }
+
                 await connection.ExecuteAsync(@"
                     INSERT INTO tbl_oem_orders (
                         oem_order_no, product_code, batch_no, customer_code, customer_name, 
@@ -164,6 +174,16 @@ public class OemOrdersController : ControllerBase
             {
                 transaction.Rollback();
                 return BadRequest(ApiResponse<object>.Error(WmsErrorCodes.DuplicateRecord, "Đơn hàng đã tồn tại."));
+            }
+
+            var productExists = await connection.ExecuteScalarAsync<int>(@"
+                SELECT COUNT(1) FROM vw_WMS_Product WHERE MFInvtID = @ProductCode",
+                new { order.ProductCode }, transaction);
+
+            if (productExists == 0)
+            {
+                transaction.Rollback();
+                return BadRequest(ApiResponse<object>.Error(WmsErrorCodes.NotFound, "Mã sản phẩm không tồn tại trong hệ thống ERP."));
             }
 
             string currentUser = _currentUserService.Username;
@@ -229,7 +249,7 @@ public class OemOrdersController : ControllerBase
         try
         {
             var existing = await connection.QueryFirstOrDefaultAsync<dynamic>(@"
-                SELECT * FROM tbl_oem_orders 
+                SELECT * FROM tbl_oem_orders WITH (UPDLOCK)
                 WHERE oem_order_no = @orderNo AND product_code = @productCode AND batch_no = @batchNo",
                 new { orderNo, productCode, batchNo }, transaction);
 
@@ -237,6 +257,12 @@ public class OemOrdersController : ControllerBase
             {
                 transaction.Rollback();
                 return NotFound(ApiResponse<object>.Error(WmsErrorCodes.NotFound, "Đơn hàng không tồn tại."));
+            }
+
+            if ((string)existing.status == "COMPLETED")
+            {
+                transaction.Rollback();
+                return BadRequest(ApiResponse<object>.Error(WmsErrorCodes.ValidationFailed, "Không thể cập nhật đơn hàng đã COMPLETED."));
             }
 
             string currentUser = _currentUserService.Username;

@@ -17,7 +17,7 @@ Các quy tắc nghiệp vụ (Business Rules):
 
 ### 1.1. UC23.1 - Tạo tài khoản (Create Account)
 - `BR-UC23-01` **Quyền hạn (Authorization):** Chỉ những người dùng thuộc nhóm quyền Quản trị (Admin) mới có chức năng tạo tài khoản mới.
-- `BR-UC23-02` **Tính duy nhất (Uniqueness):** `user_code` (Tên đăng nhập) là duy nhất toàn hệ thống, không phân biệt hoa thường.
+- `BR-UC23-02` **Tính duy nhất (Uniqueness):** `username` (Tên đăng nhập) là duy nhất toàn hệ thống, không phân biệt hoa thường.
 - `BR-UC23-03` **Mật khẩu khởi tạo (Initial Password):** Khi tạo mới, tài khoản sẽ được cấp một mật khẩu mặc định (có thể cấu hình). Đồng thời hệ thống BẮT BUỘC bật cờ yêu cầu đổi mật khẩu ở lần đăng nhập đầu tiên (`must_change_password = true`) nhằm đảm bảo tính bảo mật (Zero-trust).
 - `BR-UC23-04` **Trạng thái ban đầu:** Mặc định tài khoản vừa tạo sẽ ở trạng thái Hoạt động (`is_active = 1`).
 
@@ -76,17 +76,17 @@ Bộ tính năng này tương tác trực tiếp lên cơ sở dữ liệu SQL S
 - **Đọc danh sách User (Read):**
   Sử dụng kỹ thuật `STRING_AGG` để gom nhóm các role của một User vào chung một cột.
   ```sql
-  SELECT u.user_id, u.user_code, u.full_name, u.is_active,
+  SELECT u.user_id, u.username, u.full_name, u.is_active,
          STRING_AGG(ur.role_id, ', ') AS roles
   FROM sec_user u
   LEFT JOIN sec_user_role ur ON u.user_id = ur.user_id
-  GROUP BY u.user_id, u.user_code, u.full_name, u.is_active
+  GROUP BY u.user_id, u.username, u.full_name, u.is_active
   ```
 
 - **UC23.1 - Thêm mới (Transaction Insert):**
   ```sql
   BEGIN TRAN
-      INSERT INTO sec_user (user_code, password_hash, full_name, must_change_password, is_active, created_at)
+      INSERT INTO sec_user (username, password_hash, full_name, must_change_password, is_active, created_at)
       VALUES (@UserCode, @Hash, @FullName, 1, 1, GETDATE());
       
       DECLARE @NewUserID INT = SCOPE_IDENTITY();

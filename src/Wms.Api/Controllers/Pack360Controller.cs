@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Dapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -27,6 +28,7 @@ public class Pack360Controller : ControllerBase
     }
 
     [HttpPost("scan-unit")]
+    [Authorize(Policy = PolicyNames.Pack360ScanUnit)]
     public async Task<IActionResult> ScanUnit([FromBody] PackScanUnitRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Qr60))
@@ -60,6 +62,7 @@ public class Pack360Controller : ControllerBase
     }
 
     [HttpPost("complete")]
+    [Authorize(Policy = PolicyNames.Pack360Complete)]
     public async Task<IActionResult> CompletePack([FromBody] PackCompleteRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Pack360Id) || request.Weight <= 0)
@@ -68,11 +71,16 @@ public class Pack360Controller : ControllerBase
         }
 
         string actor = _currentUserService.Username;
+        string printJobId = Guid.NewGuid().ToString("N");
+
         var parameters = new
         {
             pack360_id = request.Pack360Id,
             weight = request.Weight,
-            user_code = actor
+            user_code = actor,
+            weight_source = request.WeightSource,
+            print_job_id = printJobId,
+            print_status = "PENDING"
         };
 
         var row = await _spExecutor.QueryFirstOrDefaultAsync<dynamic>("usp_Pack360_Complete", parameters);
@@ -83,6 +91,12 @@ public class Pack360Controller : ControllerBase
             INNER JOIN tbl_thung60_kho t ON u.id_60 = t.id_60 
             WHERE u.pack360_id = @id AND u.is_current = 1", new { id = request.Pack360Id });
 
+        string labelData = string.Empty;
+        if (row != null)
+        {
+            labelData = TsplHelper.GenerateLabel((string)row.Pack360_QR, (decimal)row.Weight, (string)row.ProductCode, (string)row.Channel);
+        }
+
         return Ok(ApiResponse<object>.Success(new
         {
             pack360_qr = row?.Pack360_QR,
@@ -90,11 +104,14 @@ public class Pack360Controller : ControllerBase
             product_code = row?.ProductCode,
             channel = row?.Channel,
             units = listQr60,
+            print_job_id = printJobId,
+            label_data = labelData,
             message = "Hoàn tất Đóng gói Thùng 360."
         }));
     }
 
     [HttpPost("cancel")]
+    [Authorize(Policy = PolicyNames.Pack360Cancel)]
     public async Task<IActionResult> CancelPack([FromBody] PackCancelRequest request)
     {
         string actor = _currentUserService.Username;
@@ -103,6 +120,7 @@ public class Pack360Controller : ControllerBase
     }
 
     [HttpGet("{id}")]
+    [Authorize(Policy = PolicyNames.Pack360Read)]
     public async Task<IActionResult> GetPackInfo([FromRoute] string id)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync();
@@ -138,6 +156,7 @@ public class Pack360Controller : ControllerBase
     }
 
     [HttpPost("release")]
+    [Authorize(Policy = PolicyNames.Pack360Release)]
     public async Task<IActionResult> ReleasePack([FromBody] PackReleaseRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Pack360Id))
@@ -157,6 +176,7 @@ public class Pack360Controller : ControllerBase
     }
 
     [HttpPost("detach-units")]
+    [Authorize(Policy = PolicyNames.Pack360Detach)]
     public async Task<IActionResult> DetachUnits([FromBody] PackDetachRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Pack360Id) || request.UnitIds == null || !request.UnitIds.Any())
@@ -177,12 +197,14 @@ public class Pack360Controller : ControllerBase
     }
 
     [HttpPost("complete-repack")]
+    [Authorize(Policy = PolicyNames.Pack360Complete)]
     public async Task<IActionResult> CompleteRepack([FromBody] PackCompleteRequest request)
     {
         return await CompletePack(request);
     }
 
     [HttpPost("transfer-order")]
+    [Authorize(Policy = PolicyNames.Pack360Transfer)]
     public async Task<IActionResult> TransferOrder([FromBody] PackTransferOrderRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Pack360Id) || string.IsNullOrWhiteSpace(request.TargetOemOrderNo))
@@ -202,12 +224,88 @@ public class Pack360Controller : ControllerBase
 
         return Ok(CommandResponse.Success("Chuyển đơn OEM cho Kiện 360 thành công."));
     }
+
+    [HttpPost("{id}/reprint")]
+    [Authorize(Policy = PolicyNames.Pack360Reprint)]
+    public async Task<IActionResult> ReprintPack([FromRoute] string id, [FromBody] PackReprintRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Reason))
+        {
+            return BadRequest(ApiResponse<object>.Error(WmsErrorCodes.ValidationFailed, "Thiếu lý do in lại."));
+        }
+
+        string actor = _currentUserService.Username;
+        var dynamicParams = new DynamicParameters();
+        dynamicParams.Add("pack360_id", id);
+        dynamicParams.Add("reason", request.Reason);
+        dynamicParams.Add("user_code", actor);
+        dynamicParams.Add("print_job_id", dbType: System.Data.DbType.String, direction: System.Data.ParameterDirection.Output, size: 50);
+
+        using var connection = await _connectionFactory.CreateConnectionAsync();
+        await connection.ExecuteAsync("usp_Pack360_Reprint_Audit", dynamicParams, commandType: System.Data.CommandType.StoredProcedure);
+
+        string printJobId = dynamicParams.Get<string>("print_job_id");
+
+        var row = await connection.QueryFirstOrDefaultAsync<dynamic>(@"
+            SELECT pack360_qr, weight 
+            FROM pack360_header 
+            WHERE pack360_id = @id", new { id });
+        
+        string labelData = string.Empty;
+        if (row != null) {
+            labelData = TsplHelper.GenerateLabel((string)row.pack360_qr, (decimal)(row.weight ?? 0), "REPRINT", "REPRINT");
+        }
+
+        return Ok(ApiResponse<object>.Success(new
+        {
+            print_job_id = printJobId,
+            label_data = labelData,
+            message = "Đã ghi nhận yêu cầu in lại."
+        }));
+    }
 }
 
-public record PackScanUnitRequest(string? Pack360Id, string Qr60, string? PackingStandardType, string? TargetOemOrderNo, bool IsRepack = false);
-public record PackCompleteRequest(string Pack360Id, decimal Weight);
-public record PackCancelRequest(string Pack360Id);
-public record PackReleaseRequest(string Pack360Id, string? Reason);
-public record PackDetachRequest(string Pack360Id, IEnumerable<string> UnitIds, string? Reason);
-public record PackTransferOrderRequest(string Pack360Id, string TargetOemOrderNo, int TargetOemBatchNo = 1, string? Reason = null);
+
+public record PackScanUnitRequest(
+    [property: JsonPropertyName("pack360_id")] string? Pack360Id, 
+    [property: JsonPropertyName("qr_60")] string Qr60, 
+    [property: JsonPropertyName("packing_standard_type")] string? PackingStandardType, 
+    [property: JsonPropertyName("target_oem_order_no")] string? TargetOemOrderNo, 
+    [property: JsonPropertyName("is_repack")] bool IsRepack = false);
+
+public record PackCompleteRequest(
+    [property: JsonPropertyName("pack360_id")] string Pack360Id, 
+    [property: JsonPropertyName("weight")] decimal Weight,
+    [property: JsonPropertyName("weight_source")] string? WeightSource = null,
+    [property: JsonPropertyName("manual_weight_reason")] string? ManualWeightReason = null);
+
+public record PackCancelRequest(
+    [property: JsonPropertyName("pack360_id")] string Pack360Id);
+
+public record PackReleaseRequest(
+    [property: JsonPropertyName("pack360_id")] string Pack360Id, 
+    [property: JsonPropertyName("reason")] string? Reason);
+
+public record PackDetachRequest(
+    [property: JsonPropertyName("pack360_id")] string Pack360Id, 
+    [property: JsonPropertyName("unit_ids")] IEnumerable<string> UnitIds, 
+    [property: JsonPropertyName("reason")] string? Reason);
+
+public record PackTransferOrderRequest(
+    [property: JsonPropertyName("pack360_id")] string Pack360Id, 
+    [property: JsonPropertyName("target_oem_order_no")] string TargetOemOrderNo, 
+    [property: JsonPropertyName("target_oem_batch_no")] int TargetOemBatchNo = 1, 
+    [property: JsonPropertyName("reason")] string? Reason = null);
+
+public record PackReprintRequest(
+    [property: JsonPropertyName("reason")] string Reason);
+
+public static class TsplHelper
+{
+    public static string GenerateLabel(string pack360Qr, decimal weight, string productCode, string channel)
+    {
+        var escapedQr = pack360Qr?.Replace("\"", "\\\"") ?? "";
+        return $"SIZE 100 mm, 150 mm\r\nGAP 3 mm, 0 mm\r\nCLS\r\nTEXT 50,50,\"3\",0,1,1,\"Weight: {weight} kg\"\r\nTEXT 50,100,\"3\",0,1,1,\"Code: {productCode}\"\r\nTEXT 50,150,\"3\",0,1,1,\"Channel: {channel}\"\r\nQRCODE 50,200,H,6,A,0,\"{escapedQr}\"\r\nPRINT 1,1\r\n";
+    }
+}
 

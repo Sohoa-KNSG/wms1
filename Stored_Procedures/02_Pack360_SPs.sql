@@ -42,6 +42,15 @@ BEGIN
         RETURN;
     END
 
+    DECLARE @stock_type NVARCHAR(50);
+    SELECT @stock_type = stock_type FROM tbl_thung60_kho WHERE id_60 = @id_60;
+    
+    IF @stock_type <> 'UNRESTRICTED'
+    BEGIN
+        RAISERROR(N'Thùng 60 không ở trạng thái UNRESTRICTED', 16, 1);
+        RETURN;
+    END
+
     IF @status <> 'AVAILABLE' AND @status <> '1'
     BEGIN
         RAISERROR(N'Thùng 60 không ở trạng thái sẵn sàng đóng gói', 16, 1);
@@ -113,7 +122,7 @@ BEGIN
                 SELECT @header_oem = oem_order_no, @header_batch = oem_batch_no FROM pack360_header WHERE pack360_id = @new_pack360_id;
 
                 -- Nếu người dùng KHÔNG NHẬP mã OEM mới (Trường hợp 1), thì các thùng quét sau phải giống mã OEM của thùng đầu tiên
-                IF (@target_oem_order_no IS NULL OR @target_oem_order_no = '')
+                IF (@target_oem_order_no IS NULL OR @target_oem_order_no = '') AND @is_repack = 0
                 BEGIN
                     IF ISNULL(@scanned_oem_order_no, '') <> ISNULL(@header_oem, '') OR ISNULL(@scanned_oem_batch_no, 1) <> ISNULL(@header_batch, 1)
                     BEGIN
@@ -176,7 +185,7 @@ BEGIN
     DECLARE @channel NVARCHAR(50);
     
     SELECT @status = status 
-    FROM pack360_header 
+    FROM pack360_header WITH (UPDLOCK, HOLDLOCK)
     WHERE pack360_id = @pack360_id;
     
     IF @status <> 'OPEN'
@@ -224,6 +233,19 @@ BEGIN
         -- Ghi event COMPLETE_PACK
         INSERT INTO pack360_event (event_id, pack360_id, event_type, old_status, new_status, performed_by, request_id)
         VALUES (NEWID(), @pack360_id, 'COMPLETE_PACK', 'OPEN', 'COMPLETED', @user_code, NEWID());
+
+        -- Hạch toán Dual Ledger
+        IF OBJECT_ID('stock_transaction_book', 'U') IS NOT NULL
+        BEGIN
+            INSERT INTO stock_transaction_book (transaction_id, transaction_type, object_id, qty, created_at, created_by)
+            VALUES (NEWID(), 'PACK360_COMPLETE', @pack360_id, @weight, GETDATE(), @user_code);
+        END
+
+        IF OBJECT_ID('inventory_ledger', 'U') IS NOT NULL
+        BEGIN
+            INSERT INTO inventory_ledger (ledger_id, product_code, change_qty, reason, created_at, created_by)
+            VALUES (NEWID(), @product_code, @weight, 'PACK360_COMPLETE', GETDATE(), @user_code);
+        END
 
         -- Cập nhật trạng thái các Thùng 60 bên trong thành PACKED_360
         UPDATE tbl_thung60_kho
