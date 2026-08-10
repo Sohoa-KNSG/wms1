@@ -253,6 +253,7 @@ GO
 | Bảng / Thực thể Dữ Liệu | Create (Tạo) | Read (Đọc) | Update (Cập nhật) | Delete (Xóa) | Ý nghĩa nghiệp vụ trong UC04 |
 | :--- | :---: | :---: | :---: | :---: | :--- |
 | `WMS_UC03_ScanLog` | - | **X** | **X** | - | Đọc log `VALID`, Cập nhật `TrangThaiScan = 'CONFIRMED'` |
+| `WMS_PhieuNhap_DonHang_Map` | - | **X** | **X** | - | Cập nhật `TrangThaiPhieu = 'COMPLETED'` để ẩn phiếu khỏi hàng chờ |
 | `tbl_thung60_kho` | **X** | **X** | - | - | Sinh bản ghi tồn kho vật lý (`status = 'AVAILABLE'`) |
 | `Packaging.dbo.tbl_thung60` | - | **X** | **X** | - | Cập nhật `trangthai = '3'` (Đã nhập WMS) |
 | `stock_transaction_book` | **X** | **X** | - | - | Ghi Header chứng từ nhập kho Sổ Cái Kép |
@@ -265,7 +266,8 @@ GO
 
 | Cột / Biến | Kiểu Dữ Liệu | Giá Trị Sau Confirm | Ý nghĩa Nghiệp vụ |
 | :--- | :--- | :--- | :--- |
-| `TrangThaiScan` | `NVARCHAR(30)` | `'CONFIRMED'` | Khóa cứng bản ghi log, chuyển từ tạm thu sang chính thức |
+| `TrangThaiScan` (trong `WMS_UC03_ScanLog`) | `NVARCHAR(30)` | `'CONFIRMED'` | Khóa cứng bản ghi log, chuyển từ tạm thu sang chính thức |
+| `TrangThaiPhieu` (trong `WMS_PhieuNhap_DonHang_Map`) | `NVARCHAR(50)` | `'COMPLETED'` | Đánh dấu hoàn tất dòng phiếu trên WMS, ẩn phiếu khỏi danh sách chờ duyệt |
 | `status` (trong `tbl_thung60_kho`) | `VARCHAR(20)` | `'AVAILABLE'` | Tồn kho vật lý sẵn sàng cho xuất hàng / phân bổ |
 | `stock_type` | `VARCHAR(20)` | `'UNRESTRICTED'` | Loại kho tự do sử dụng (không bị giữ quarantine/hỏng) |
 | `trangthai` (bên Packaging) | `VARCHAR(10)` | `'3'` | Thùng 60 đã bản giao thành công cho kho WMS |

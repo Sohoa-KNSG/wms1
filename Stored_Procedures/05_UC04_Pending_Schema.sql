@@ -50,6 +50,7 @@ LEFT JOIN dbo.WMS_UC03_ScanLog scan
     AND scan.TrangThaiScan IN (N'VALID', N'CONFIRMED')
     AND scan.IsDeleted = 0
 WHERE ct.TrangThaiRelease = 0 -- Chỉ lấy những phiếu chưa hoàn tất bên ERP
+  AND ISNULL(map.TrangThaiPhieu, N'NEW') <> N'COMPLETED' -- Và chưa hoàn tất xác nhận trong WMS
 GROUP BY
     ct.SoPhieuNhap,
     ct.MaChiTietPhieu,

@@ -154,6 +154,7 @@ BEGIN
 
         -- 6. Trả về kết quả cho API
         SELECT 
+            SCOPE_IDENTITY() AS ScanLogID,
             @TrangThaiScan AS TrangThaiScan,
             @KetQua AS KetQuaKiemTra,
             @MaThung60 AS MaThung60,
@@ -402,11 +403,14 @@ BEGIN
       AND IsDeleted = 0;
     END;
 
-    -- Cập nhật trạng thái phiếu bên ERP/WMS
+    -- Cập nhật trạng thái phiếu bên WMS
     UPDATE map
-    SET IsDeleted = 0
+    SET TrangThaiPhieu = N'COMPLETED',
+        UpdatedAt = GETDATE(),
+        UpdatedBy = @UserName
     FROM dbo.WMS_PhieuNhap_DonHang_Map map
-    WHERE map.SoPhieuNhap = @SoPhieuNhap;
+    WHERE map.SoPhieuNhap = @SoPhieuNhap
+      AND (map.MaChiTietPhieu = @MaChiTietPhieu OR @MaChiTietPhieu IS NULL);
 
     COMMIT TRANSACTION;
 

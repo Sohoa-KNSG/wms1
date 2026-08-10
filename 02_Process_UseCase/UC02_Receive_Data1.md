@@ -254,6 +254,7 @@ erDiagram
         string MaSanPham
         string MaDonHang FK
         boolean IsDeleted
+        string TrangThaiPhieu
         datetime CreatedAt
         string CreatedBy
     }

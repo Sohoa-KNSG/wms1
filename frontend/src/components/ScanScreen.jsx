@@ -171,12 +171,13 @@ export default function ScanScreen({ handoverNo: propHandoverNo, lineNo: propLin
       setScanLogs(prev => prev.filter(l => l !== logItem));
       return;
     }
-    if (!window.confirm(`Bạn có chắc muốn Hủy Quét mã thùng ${logItem.qr}?`)) return;
+    const reason = window.prompt(`Bạn có chắc muốn Hủy Quét mã thùng ${logItem.qr}?\nVui lòng nhập lý do hủy:`, 'Hủy quét sai thùng');
+    if (reason === null) return; // User clicked Cancel
 
     setCancellingId(logItem.scanLogId);
     try {
-      await receivingApi.cancelScan({ scanLogId: logItem.scanLogId, reason: 'Hủy quét từ màn hình PDA' });
-      setScanLogs(prev => prev.map(l => l.scanLogId === logItem.scanLogId ? { ...l, status: 'CANCELLED', message: 'Đã hủy lượt quét này' } : l));
+      await receivingApi.cancelScan({ scanLogId: logItem.scanLogId, reason: reason });
+      setScanLogs(prev => prev.map(l => l.scanLogId === logItem.scanLogId ? { ...l, status: 'CANCELLED', message: `Đã hủy: ${reason}` } : l));
       fetchProgress();
     } catch (err) {
       alert("Lỗi khi hủy quét: " + (err.message || 'Không thể kết nối'));

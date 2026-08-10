@@ -1,4 +1,27 @@
+- **Thời gian**: 2026-08-10
+- **Tên Task/Milestone**: Fix Bug UC04 (Double-Confirm)
+- **Nội dung thay đổi**:
+  - Bổ sung cột `TrangThaiPhieu` vào bảng nội bộ WMS `WMS_PhieuNhap_DonHang_Map` thông qua `ALTER TABLE`.
+  - Cập nhật Stored Procedure `usp_WMS_UC04_ConfirmNhapKho` để set `TrangThaiPhieu = N'COMPLETED'` thay vì `IsDeleted = 0`.
+  - Cập nhật View `vw_WMS_UC04_PhieuChoXacNhan` để lọc bỏ các phiếu giao kho đã xác nhận (`TrangThaiPhieu = N'COMPLETED'`), giúp ẩn phiếu khỏi danh sách chờ trên Frontend ngay lập tức mà không tác động tới bảng `sxtpt.dbo.MF_InTran` của ERP.
+  - Sao lưu `implementation_plan.md` và `walkthrough.md` vào thư mục `docs/history/`.
+
+- **Thời gian**: 2026-08-10
+- **Tên Task/Milestone**: Cập nhật cấu hình Device Agent và Bridge CORS cho UC05
+- **Nội dung thay đổi**:
+  - Xác minh Frontend sử dụng `localhost:8080` làm mặc định và không hardcode IP.
+  - Bổ sung URL Web (`http://10.17.16.164:5173`) vào biến `CORS_ALLOWED_ORIGINS` của `wms-edge-bridge` (`config.js` và `.env.example`).
+  - Đảm bảo ứng dụng UC05 có thể gọi Bridge trực tiếp từ Chromium chạy trên Raspberry Pi.
 # Changelog
+
+- **Thời gian**: 2026-08-10
+- **Tên Task/Milestone**: Fix Bug UC03 (Lỗi Hủy Quét Thùng - TC_UC03_09)
+- **Nội dung thay đổi**:
+  - Fix SP `usp_WMS_UC03_ScanThung60`: Trả về `SCOPE_IDENTITY() AS ScanLogID` sau khi Insert để Frontend có ID thực phục vụ Hủy quét.
+  - Cập nhật UI `ScanScreen.jsx`: Dùng `window.prompt` hiển thị Modal yêu cầu người dùng nhập lý do khi bấm Hủy Quét.
+  - Sửa lỗi Frontend không call API Hủy Quét và không trừ số lượng tích lũy do thiếu `scanLogId`.
+
+---
 
 - **Thời gian**: 2026-08-07
 - **Tên Task/Milestone**: Đồng bộ UC05 Web App/API với WMS Edge Bridge đã cài trên Raspberry Pi

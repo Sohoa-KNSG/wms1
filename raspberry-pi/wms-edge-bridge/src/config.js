@@ -39,7 +39,7 @@ function loadConfig(env = process.env) {
     token,
     corsAllowedOrigins: list(
       env.CORS_ALLOWED_ORIGINS,
-      'http://localhost:5173,http://localhost:3000'
+      'http://localhost:5173,http://localhost:3000,http://10.17.16.164:5173'
     ),
     scale: {
       path: env.SCALE_PORT || '/dev/ttyUSB0',
