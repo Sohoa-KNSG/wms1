@@ -352,8 +352,9 @@ flowchart TD
     
     PostItemLedger --> PostEvent[INSERT INTO thung60_event OFFICIAL_RECEIPT_POSTED]
     PostEvent --> SetConfirmed[UPDATE WMS_UC03_ScanLog SET TrangThaiScan = 'CONFIRMED']
+    SetConfirmed --> SetMap[UPDATE WMS_PhieuNhap_DonHang_Map SET TrangThaiPhieu = 'COMPLETED']
     
-    SetConfirmed --> CommitTx[COMMIT TRANSACTION]
+    SetMap --> CommitTx[COMMIT TRANSACTION]
     CommitTx --> End([Return HTTP 200 OK: Hạch toán Sổ Cái Kép Hoàn Tất])
 
     classDef valid fill:#d4edda,stroke:#28a745,stroke-width:2px;
@@ -373,6 +374,13 @@ erDiagram
     stock_transaction_book ||--o{ inventory_ledger : "chứa chi tiết hạch toán thùng"
     stock_transaction_book ||--o{ item_ledger : "chứa chi tiết hạch toán SKU"
     tbl_thung60_kho ||--o{ thung60_event : "lưu nhật ký sự kiện vòng đời"
+    WMS_PhieuNhap_DonHang_Map ||--|{ WMS_UC03_ScanLog : "liên kết phiếu và mã đơn"
+
+    WMS_PhieuNhap_DonHang_Map {
+        string SoPhieuNhap PK
+        string MaChiTietPhieu PK
+        string TrangThaiPhieu "'COMPLETED'"
+    }
 
     WMS_UC03_ScanLog {
         bigint ScanLogID PK

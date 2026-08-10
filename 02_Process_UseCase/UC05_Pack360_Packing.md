@@ -46,15 +46,22 @@
   - Mã QR thùng 60 đầu tiên quét vào sẽ khởi tạo phiên làm việc draft (`status = 'OPEN'`).
   - Lưu trạng thái danh sách thùng `units[]` trong local state.
   - Khi người dùng bấm "Chốt Kiện", Frontend gửi request `POST /api/v1/pack360/complete` chứa `pack360_id`, `weight`, `units[]`.
+- **Trạng thái Cân IoT (Scale States):**
+  - Theo dõi 3 trạng thái từ Bridge: `STABLE` (Cân ổn định, cho phép chốt), `STALE` (Dữ liệu cũ/cân đang nhảy, cảnh báo màu cam), `OFFLINE` (Mất kết nối).
+  - Hỗ trợ nhập trọng lượng thủ công (Manual Weight Input) yêu cầu nhập bắt buộc "Lý do nhập tay" khi cân OFFLINE.
+- **Xử lý sự cố in ấn (Reprint Flow):**
+  - Nếu việc gửi lệnh in xuống máy in bị lỗi (mạng, kẹt giấy), tiến trình chốt kiện trên Server vẫn hoàn tất.
+  - UI hiển thị Modal cảnh báo lỗi in kèm nút `[ In Lại Mã Vạch ]` để gọi API `POST /api/v1/pack360/{id}/reprint` lấy lại chuỗi TSPL.
 
 ### 3.2. Hardware Integration (Local Bridge API)
-- Đọc Cân IoT: `GET http://localhost:8080/api/scale/current` $\rightarrow$ Trả về `{ weight: 15.45, status: 'STABLE' }`.
-- Gửi Lệnh In Tem: `POST http://localhost:8080/api/print` $\rightarrow$ Payload chứa chuỗi TSPL lệnh in 2 tem.
+- **Kiến trúc CORS & Localhost:** Frontend Web chạy trên PI (`http://10.17.16.164:5173`) giao tiếp trực tiếp với Bridge Node.js tại `http://localhost:8080`. Không thông qua Proxy ngoài để đảm bảo tính thời gian thực.
+- Đọc Cân IoT: `GET http://localhost:8080/api/scale/current` (Auth bằng `X-Device-Agent-Token`). Trả về `{ weight: 15.45, status: 'STABLE' }`.
+- Gửi Lệnh In Tem: `POST http://localhost:8080/api/print` (Auth bằng `X-Device-Agent-Token`). Payload chứa chuỗi lệnh in TSPL.
 
 ### 3.3. Backend API Implementation (Express & C# .NET)
-- Express Node.js Route: `backend/routes/pack360.js`
-- C# .NET Controller: `src/Wms.Api/Controllers/Pack360Controller.cs`
-- Gọi Stored Procedure transactional SQL Server: `usp_Pack360_ScanUnit` và `usp_Pack360_Complete`.
+- C# .NET Controller: `src/Wms.Api/Controllers/Pack360Controller.cs` (Kèm `[Authorize]` policy).
+- **Chốt kiện:** `POST /api/v1/pack360/complete`. Gọi Stored Procedure transactional SQL Server `usp_Pack360_Complete`. Trả về nguyên gốc lệnh in TSPL 2 tem nhãn.
+- **In lại:** `POST /api/v1/pack360/{id}/reprint`. Gọi `usp_Pack360_GetReprintData` để sinh lại chuỗi TSPL cho kiện cũ.
 
 ---
 
