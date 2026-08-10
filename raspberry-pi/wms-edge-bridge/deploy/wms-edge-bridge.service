@@ -1,0 +1,21 @@
+[Unit]
+Description=WMS UC05 Raspberry Pi Hardware Bridge
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=wmsbridge
+Group=wmsbridge
+WorkingDirectory=/opt/wms-edge-bridge
+EnvironmentFile=/etc/wms-edge-bridge.env
+ExecStart=/usr/bin/node /opt/wms-edge-bridge/src/server.js
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

@@ -28,7 +28,7 @@ public class Pack360Controller : ControllerBase
     }
 
     [HttpPost("scan-unit")]
-    [Authorize(Policy = PolicyNames.Pack360ScanUnit)]
+    [Authorize(Policy = PolicyNames.Pack360Scan)]
     public async Task<IActionResult> ScanUnit([FromBody] PackScanUnitRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Qr60))
@@ -70,6 +70,18 @@ public class Pack360Controller : ControllerBase
             return BadRequest(ApiResponse<object>.Error(WmsErrorCodes.ValidationFailed, "Thiếu tham số bắt buộc."));
         }
 
+        string weightSource = string.IsNullOrWhiteSpace(request.WeightSource)
+            ? "SCALE"
+            : request.WeightSource.Trim().ToUpperInvariant();
+        if (weightSource is not ("SCALE" or "MANUAL"))
+        {
+            return BadRequest(ApiResponse<object>.Error(WmsErrorCodes.ValidationFailed, "Nguồn cân không hợp lệ."));
+        }
+        if (weightSource == "MANUAL" && string.IsNullOrWhiteSpace(request.ManualWeightReason))
+        {
+            return BadRequest(ApiResponse<object>.Error(WmsErrorCodes.ValidationFailed, "Bắt buộc nhập lý do khi nhập trọng lượng thủ công."));
+        }
+
         string actor = _currentUserService.Username;
         string printJobId = Guid.NewGuid().ToString("N");
 
@@ -78,7 +90,8 @@ public class Pack360Controller : ControllerBase
             pack360_id = request.Pack360Id,
             weight = request.Weight,
             user_code = actor,
-            weight_source = request.WeightSource,
+            weight_source = weightSource,
+            manual_weight_reason = request.ManualWeightReason?.Trim(),
             print_job_id = printJobId,
             print_status = "PENDING"
         };
@@ -99,6 +112,7 @@ public class Pack360Controller : ControllerBase
 
         return Ok(ApiResponse<object>.Success(new
         {
+            pack360_id = request.Pack360Id,
             pack360_qr = row?.Pack360_QR,
             weight = row?.Weight,
             product_code = row?.ProductCode,
@@ -106,6 +120,7 @@ public class Pack360Controller : ControllerBase
             units = listQr60,
             print_job_id = printJobId,
             label_data = labelData,
+            label_tspl = labelData,
             message = "Hoàn tất Đóng gói Thùng 360."
         }));
     }
@@ -258,8 +273,10 @@ public class Pack360Controller : ControllerBase
 
         return Ok(ApiResponse<object>.Success(new
         {
+            pack360_id = id,
             print_job_id = printJobId,
             label_data = labelData,
+            label_tspl = labelData,
             message = "Đã ghi nhận yêu cầu in lại."
         }));
     }
