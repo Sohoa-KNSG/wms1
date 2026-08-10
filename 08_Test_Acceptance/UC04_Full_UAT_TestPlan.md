@@ -72,58 +72,58 @@ Mỗi lần chạy lại phải dùng phiếu/mã thùng mới hoặc khôi ph�
 
 ### 6.1. Danh sách chờ và giao diện
 
-| Mã | Kịch bản | Bước thực hiện | Kết quả mong đợi |
-|---|---|---|---|
-| UC04-UI-01 | Hiển thị danh sách phiếu chờ | Mở màn hình xác nhận bằng tài khoản Thủ kho | Hiển thị đúng mã phiếu, số dòng, số lượng yêu cầu, số lượng hợp lệ và tỷ lệ hoàn thành |
-| UC04-UI-02 | Chi tiết từng dòng | Mở D02 | Tổng từng dòng và tổng toàn phiếu khớp dữ liệu scan, không cộng trùng |
-| UC04-UI-03 | Phiếu chưa đủ | Mở D03 | Nút xác nhận bị khóa và hiển thị chính xác số lượng còn thiếu |
-| UC04-UI-04 | Phiếu đủ | Mở D01 | Nút xác nhận được bật; modal tóm tắt đúng số thùng và SKU |
-| UC04-UI-05 | Chống bấm lặp | Bấm xác nhận rồi bấm lại nhanh | Nút chuyển trạng thái loading; chỉ một request nghiệp vụ được xử lý |
-| UC04-UI-06 | Phản hồi lỗi | Tạo lỗi Packaging rồi xác nhận D07 | Hiển thị thông báo nghiệp vụ dễ hiểu, không lộ stack trace hoặc câu SQL |
+| Mã TC | Kịch bản | Bước thực hiện | Kết quả mong đợi | Trạng thái (Pass/Fail) | Người Test | Ngày Test | Ghi chú (Bug ID) |
+| :--- | :--- | :--- | :--- | :---: | :--- | :--- | :--- |
+| UC04-UI-01 | Hiển thị danh sách phiếu chờ | Mở màn hình xác nhận bằng tài khoản Thủ kho | Hiển thị đúng mã phiếu, số dòng, số lượng yêu cầu, số lượng hợp lệ và tỷ lệ hoàn thành |  |  |  |  |
+| UC04-UI-02 | Chi tiết từng dòng | Mở D02 | Tổng từng dòng và tổng toàn phiếu khớp dữ liệu scan, không cộng trùng |  |  |  |  |
+| UC04-UI-03 | Phiếu chưa đủ | Mở D03 | Nút xác nhận bị khóa và hiển thị chính xác số lượng còn thiếu |  |  |  |  |
+| UC04-UI-04 | Phiếu đủ | Mở D01 | Nút xác nhận được bật; modal tóm tắt đúng số thùng và SKU |  |  |  |  |
+| UC04-UI-05 | Chống bấm lặp | Bấm xác nhận rồi bấm lại nhanh | Nút chuyển trạng thái loading; chỉ một request nghiệp vụ được xử lý |  |  |  |  |
+| UC04-UI-06 | Phản hồi lỗi | Tạo lỗi Packaging rồi xác nhận D07 | Hiển thị thông báo nghiệp vụ dễ hiểu, không lộ stack trace hoặc câu SQL |  |  |  |  |
 
 ### 6.2. Xác nhận nhập kho chính thức
 
-| Mã | Kịch bản | Bước thực hiện | Kết quả mong đợi |
-|---|---|---|---|
-| UC04-HP-01 | Xác nhận một dòng | Xác nhận dòng hợp lệ của D01 | Tồn kho, transaction book, hai ledger và event được ghi đúng; scan chuyển `CONFIRMED` |
-| UC04-HP-02 | Xác nhận toàn phiếu | Xác nhận D02 | Tất cả dòng thành công trong một giao dịch; phiếu chuyển `COMPLETED` |
-| UC04-HP-03 | Đồng bộ Packaging | Kiểm tra các thùng sau HP-02 | Tất cả thùng chuyển trạng thái `3`, có `BatNbr`, `RecordID` và OEM đúng |
-| UC04-HP-04 | Tính tổng ledger | Đối chiếu D02 | Tổng `inventory_ledger` bằng tổng `item_ledger` và bằng tổng tồn kho phát sinh |
-| UC04-ERR-01 | Thiếu số lượng | Xác nhận D03 | Bị từ chối; không bảng đích nào thay đổi |
-| UC04-ERR-02 | Vượt số lượng | Xác nhận D04 | Bị từ chối; không bảng đích nào thay đổi |
-| UC04-ERR-03 | Thùng trùng tồn kho | Xác nhận D05 | Bị từ chối và rollback toàn bộ |
-| UC04-ERR-04 | Thiếu thùng Packaging | Xác nhận D06 | Bị từ chối; không sinh tồn kho hoặc ledger |
-| UC04-ERR-05 | Sai trạng thái Packaging | Xác nhận D07 | Bị từ chối; Packaging và WMS giữ nguyên |
-| UC04-ERR-06 | Không có scan hợp lệ | Xác nhận phiếu không có `VALID` | Trả lỗi nghiệp vụ; không phát sinh dữ liệu |
-| UC04-ERR-07 | Phiếu không tồn tại | Gửi mã phiếu giả | API trả `404` hoặc mã lỗi chuẩn đã thống nhất |
-| UC04-ERR-08 | Xác nhận lại phiếu hoàn tất | Gửi lại D10 | Không tạo transaction, tồn kho hoặc ledger thứ hai |
+| Mã TC | Kịch bản | Bước thực hiện | Kết quả mong đợi | Trạng thái (Pass/Fail) | Người Test | Ngày Test | Ghi chú (Bug ID) |
+| :--- | :--- | :--- | :--- | :---: | :--- | :--- | :--- |
+| UC04-HP-01 | Xác nhận một dòng | Xác nhận dòng hợp lệ của D01 | Tồn kho, transaction book, hai ledger và event được ghi đúng; scan chuyển `CONFIRMED` |  |  |  |  |
+| UC04-HP-02 | Xác nhận toàn phiếu | Xác nhận D02 | Tất cả dòng thành công trong một giao dịch; phiếu chuyển `COMPLETED` |  |  |  |  |
+| UC04-HP-03 | Đồng bộ Packaging | Kiểm tra các thùng sau HP-02 | Tất cả thùng chuyển trạng thái `3`, có `BatNbr`, `RecordID` và OEM đúng |  |  |  |  |
+| UC04-HP-04 | Tính tổng ledger | Đối chiếu D02 | Tổng `inventory_ledger` bằng tổng `item_ledger` và bằng tổng tồn kho phát sinh |  |  |  |  |
+| UC04-ERR-01 | Thiếu số lượng | Xác nhận D03 | Bị từ chối; không bảng đích nào thay đổi |  |  |  |  |
+| UC04-ERR-02 | Vượt số lượng | Xác nhận D04 | Bị từ chối; không bảng đích nào thay đổi |  |  |  |  |
+| UC04-ERR-03 | Thùng trùng tồn kho | Xác nhận D05 | Bị từ chối và rollback toàn bộ |  |  |  |  |
+| UC04-ERR-04 | Thiếu thùng Packaging | Xác nhận D06 | Bị từ chối; không sinh tồn kho hoặc ledger |  |  |  |  |
+| UC04-ERR-05 | Sai trạng thái Packaging | Xác nhận D07 | Bị từ chối; Packaging và WMS giữ nguyên |  |  |  |  |
+| UC04-ERR-06 | Không có scan hợp lệ | Xác nhận phiếu không có `VALID` | Trả lỗi nghiệp vụ; không phát sinh dữ liệu |  |  |  |  |
+| UC04-ERR-07 | Phiếu không tồn tại | Gửi mã phiếu giả | API trả `404` hoặc mã lỗi chuẩn đã thống nhất |  |  |  |  |
+| UC04-ERR-08 | Xác nhận lại phiếu hoàn tất | Gửi lại D10 | Không tạo transaction, tồn kho hoặc ledger thứ hai |  |  |  |  |
 
 ### 6.3. UC04.1 – Nhập lẻ và thùng ảo
 
-| Mã | Kịch bản | Bước thực hiện | Kết quả mong đợi |
-|---|---|---|---|
-| UC04.1-HP-01 | Nhập đúng phần thiếu | Nhập lẻ D08 bằng đúng số còn thiếu | Tạo một thùng `VIR-*`, `is_virtual = 1`, đúng SKU/OEM/khách hàng và số lượng |
-| UC04.1-HP-02 | Ghi sổ nhập lẻ | Đối chiếu sau HP-01 | Có transaction `RECEIPT_PARTIAL`, hai ledger, event và audit tương ứng |
-| UC04.1-HP-03 | Cập nhật tiến độ | Làm mới chi tiết D08 | Tiến độ đạt 100%; thùng ảo không được tìm trong Packaging |
-| UC04.1-ERR-01 | Số lượng bằng 0 | Gửi `looseQty = 0` | Bị từ chối, không phát sinh dữ liệu |
-| UC04.1-ERR-02 | Số lượng âm | Gửi số âm | Bị từ chối, không phát sinh dữ liệu |
-| UC04.1-ERR-03 | Số thập phân | Gửi `1.5` | Bị từ chối theo quy tắc số nguyên |
-| UC04.1-ERR-04 | Không bằng phần thiếu | Gửi số nhỏ hơn/lớn hơn phần thiếu | Bị từ chối và giữ nguyên tiến độ |
-| UC04.1-ERR-05 | Thiếu mapping OEM | Xóa/khóa mapping của dữ liệu test rồi nhập lẻ | Bị từ chối, không tạo thùng ảo thiếu nguồn gốc |
-| UC04.1-ERR-06 | Trùng mã thùng ảo | Gửi hai request đồng thời cho cùng dòng | Chỉ một request thành công; không trùng `id_60` |
-| UC04.1-BAT-01 | Batch thành công | Nhập lẻ toàn bộ D09 | Tất cả dòng thành công và thuộc cùng một giao dịch nghiệp vụ |
-| UC04.1-BAT-02 | Batch lỗi giữa chừng | Làm dòng giữa của D09 không hợp lệ | Toàn bộ batch rollback; không dòng nào được ghi |
+| Mã TC | Kịch bản | Bước thực hiện | Kết quả mong đợi | Trạng thái (Pass/Fail) | Người Test | Ngày Test | Ghi chú (Bug ID) |
+| :--- | :--- | :--- | :--- | :---: | :--- | :--- | :--- |
+| UC04.1-HP-01 | Nhập đúng phần thiếu | Nhập lẻ D08 bằng đúng số còn thiếu | Tạo một thùng `VIR-*`, `is_virtual = 1`, đúng SKU/OEM/khách hàng và số lượng |  |  |  |  |
+| UC04.1-HP-02 | Ghi sổ nhập lẻ | Đối chiếu sau HP-01 | Có transaction `RECEIPT_PARTIAL`, hai ledger, event và audit tương ứng |  |  |  |  |
+| UC04.1-HP-03 | Cập nhật tiến độ | Làm mới chi tiết D08 | Tiến độ đạt 100%; thùng ảo không được tìm trong Packaging |  |  |  |  |
+| UC04.1-ERR-01 | Số lượng bằng 0 | Gửi `looseQty = 0` | Bị từ chối, không phát sinh dữ liệu |  |  |  |  |
+| UC04.1-ERR-02 | Số lượng âm | Gửi số âm | Bị từ chối, không phát sinh dữ liệu |  |  |  |  |
+| UC04.1-ERR-03 | Số thập phân | Gửi `1.5` | Bị từ chối theo quy tắc số nguyên |  |  |  |  |
+| UC04.1-ERR-04 | Không bằng phần thiếu | Gửi số nhỏ hơn/lớn hơn phần thiếu | Bị từ chối và giữ nguyên tiến độ |  |  |  |  |
+| UC04.1-ERR-05 | Thiếu mapping OEM | Xóa/khóa mapping của dữ liệu test rồi nhập lẻ | Bị từ chối, không tạo thùng ảo thiếu nguồn gốc |  |  |  |  |
+| UC04.1-ERR-06 | Trùng mã thùng ảo | Gửi hai request đồng thời cho cùng dòng | Chỉ một request thành công; không trùng `id_60` |  |  |  |  |
+| UC04.1-BAT-01 | Batch thành công | Nhập lẻ toàn bộ D09 | Tất cả dòng thành công và thuộc cùng một giao dịch nghiệp vụ |  |  |  |  |
+| UC04.1-BAT-02 | Batch lỗi giữa chừng | Làm dòng giữa của D09 không hợp lệ | Toàn bộ batch rollback; không dòng nào được ghi |  |  |  |  |
 
 ### 6.4. UC04.2 – Hủy kết quả quét
 
-| Mã | Kịch bản | Bước thực hiện | Kết quả mong đợi |
-|---|---|---|---|
-| UC04.2-HP-01 | Hủy phiếu chưa xác nhận | Nhập lý do và hủy D11 | Các scan active chuyển `CANCELLED`, `IsDeleted = 1`; tiến độ về đúng giá trị |
-| UC04.2-HP-02 | Audit hủy | Kiểm tra audit sau HP-01 | Có phiếu, lý do, user, thời gian, IP/device và request ID thực |
-| UC04.2-ERR-01 | Thiếu lý do | Gửi lý do trống | API từ chối validation; dữ liệu không đổi |
-| UC04.2-ERR-02 | Phiếu đã ghi ledger | Hủy D10 | Trả xung đột; không xóa scan hoặc ledger |
-| UC04.2-ERR-03 | Phiếu không có scan active | Hủy phiếu rỗng | Trả lỗi phù hợp; không tạo audit “thành công” giả |
-| UC04.2-ERR-04 | Hủy lại | Gửi lại request hủy đã thành công | Không tạo thay đổi lặp; kết quả idempotent hoặc trả xung đột rõ ràng |
+| Mã TC | Kịch bản | Bước thực hiện | Kết quả mong đợi | Trạng thái (Pass/Fail) | Người Test | Ngày Test | Ghi chú (Bug ID) |
+| :--- | :--- | :--- | :--- | :---: | :--- | :--- | :--- |
+| UC04.2-HP-01 | Hủy phiếu chưa xác nhận | Nhập lý do và hủy D11 | Các scan active chuyển `CANCELLED`, `IsDeleted = 1`; tiến độ về đúng giá trị |  |  |  |  |
+| UC04.2-HP-02 | Audit hủy | Kiểm tra audit sau HP-01 | Có phiếu, lý do, user, thời gian, IP/device và request ID thực |  |  |  |  |
+| UC04.2-ERR-01 | Thiếu lý do | Gửi lý do trống | API từ chối validation; dữ liệu không đổi |  |  |  |  |
+| UC04.2-ERR-02 | Phiếu đã ghi ledger | Hủy D10 | Trả xung đột; không xóa scan hoặc ledger |  |  |  |  |
+| UC04.2-ERR-03 | Phiếu không có scan active | Hủy phiếu rỗng | Trả lỗi phù hợp; không tạo audit “thành công” giả |  |  |  |  |
+| UC04.2-ERR-04 | Hủy lại | Gửi lại request hủy đã thành công | Không tạo thay đổi lặp; kết quả idempotent hoặc trả xung đột rõ ràng |  |  |  |  |
 
 ### 6.5. Phân quyền và bảo mật
 
