@@ -61,6 +61,10 @@ export default function RepackScreen({ onBack }) {
       const data = await scaleService.readWeight();
       const scaleWeight = data.weight || 0;
       setWeight(scaleWeight);
+      if (data.stale || !data.isStable) {
+        setStatusMsg({ text: 'Dữ liệu cân chưa ổn định hoặc đã cũ.', type: 'error' });
+        return null;
+      }
       setStatusMsg({ text: `Đã lấy cân nặng: ${scaleWeight} kg`, type: 'success' });
       return scaleWeight;
     } catch (error) {
@@ -70,6 +74,8 @@ export default function RepackScreen({ onBack }) {
   };
 
   const generateTSPL = (data) => {
+    if (data.label_tspl || data.label_data) return data.label_tspl || data.label_data;
+
     const { pack360_qr, weight, units } = data;
     
     let tspl = `SIZE 78 mm,40 mm\nGAP 2 mm,0\nDIRECTION 1\nCLS\n`;
@@ -93,7 +99,7 @@ export default function RepackScreen({ onBack }) {
   const handlePrint = async (dataToPrint) => {
     try {
       const tsplCommand = generateTSPL(dataToPrint);
-      await printService.printLabel(tsplCommand);
+      await printService.printLabel(tsplCommand, 'DEFAULT_PRINTER', dataToPrint?.print_job_id);
       setStatusMsg({ text: 'Đã gửi lệnh in 2 tem thành công.', type: 'success' });
     } catch (error) {
       setStatusMsg({ text: 'Gửi lệnh in thất bại. Đảm bảo Local Bridge đang chạy.', type: 'error' });
@@ -104,11 +110,19 @@ export default function RepackScreen({ onBack }) {
     if (!pack360Id) return;
     
     let scaleWeight = null;
+    let weightSource = 'SCALE';
+    let manualReason = '';
     
     if (isManualWeight) {
       scaleWeight = parseFloat(manualWeightValue);
       if (isNaN(scaleWeight) || scaleWeight <= 0) {
         setStatusMsg({ text: 'Vui lòng nhập trọng lượng hợp lệ!', type: 'error' });
+        return;
+      }
+      weightSource = 'MANUAL';
+      manualReason = window.prompt('Vui lòng nhập lý do nhập tay trọng lượng:') || '';
+      if (!manualReason.trim()) {
+        setStatusMsg({ text: 'Bắt buộc nhập lý do khi cân thủ công!', type: 'error' });
         return;
       }
     } else {
@@ -124,7 +138,9 @@ export default function RepackScreen({ onBack }) {
 
       const res = await packingApi.completeRepack({
         pack360_id: pack360Id,
-        weight: scaleWeight
+        weight: scaleWeight,
+        weight_source: weightSource,
+        manual_weight_reason: manualReason
       });
 
       const payload = res?.data !== undefined ? res.data : res;

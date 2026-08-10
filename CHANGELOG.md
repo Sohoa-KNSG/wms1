@@ -1,5 +1,18 @@
 # Changelog
 
+- **Thời gian**: 2026-08-07
+- **Tên Task/Milestone**: Đồng bộ UC05 Web App/API với WMS Edge Bridge đã cài trên Raspberry Pi
+- **Nội dung thay đổi**:
+  - Đồng bộ mã nguồn `raspberry-pi/wms-edge-bridge` với đúng bản 1.0.0 đang vận hành; giữ API `/health`, `/scale/weight`, `/printer/status` và `/printer/print` trên cổng 8080.
+  - Chuẩn hóa hợp đồng in: API trả đồng thời `label_data`/`label_tspl`, `pack360_id`, `print_job_id`; frontend chuyển nguyên `print_job_id` và trường TSPL `data` tới bridge.
+  - Chuẩn hóa Device Agent URL/token qua biến môi trường hoặc localStorage, có tương thích khóa token cũ.
+  - Bổ sung kiểm tra nguồn cân và lý do nhập cân thủ công cho Pack360/Repack.
+  - Sửa migration và stored procedure UC05 để lưu metadata cân/in nhưng vẫn giữ `pack360_event`, Dual Ledger và cập nhật trạng thái thùng 60 trong cùng transaction.
+  - Đồng bộ permission `Pack360.Scan`/`Pack360.Reprint` giữa frontend, API và security schema.
+  - Bổ sung test hợp đồng bridge; kết quả: 11 unit test .NET, 2 integration test, 8 frontend test và 15 edge bridge test đều đạt.
+
+---
+
 Lịch sử thay đổi và cập nhật của dự án WMS.
 
 ---

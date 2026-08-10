@@ -1,19 +1,33 @@
 import { deviceClient } from './deviceClient.js';
 
-export const printService = {
-  printLabel: async (labelData, printerName = 'DEFAULT_PRINTER') => {
-    const jobId = 'job-' + Math.random().toString(36).substring(2, 11) + '-' + Date.now();
+export const resolveLabelData = (payload) => payload?.label_tspl || payload?.label_data || '';
 
-    try {
-      const response = await deviceClient.post('/printer/print', {
-        jobId,
-        printerName,
-        data: labelData
-      });
-      return { success: true, jobId, response };
-    } catch (error) {
-      throw error;
+const createFallbackJobId = () => globalThis.crypto?.randomUUID?.()
+  || `job-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+
+export const createPrintRequest = (labelData, printerName = 'DEFAULT_PRINTER', requestedJobId = null) => ({
+  jobId: requestedJobId || createFallbackJobId(),
+  printerName,
+  data: labelData
+});
+
+export const printService = {
+  printLabel: async (labelData, printerName = 'DEFAULT_PRINTER', requestedJobId = null) => {
+    if (!labelData || !String(labelData).trim()) {
+      throw new Error('Không có dữ liệu TSPL để in.');
     }
+
+    const request = createPrintRequest(labelData, printerName, requestedJobId);
+    const response = await deviceClient.post('/printer/print', request);
+    return { success: true, jobId: request.jobId, response };
+  },
+
+  printPackLabel: async (payload, printerName = 'DEFAULT_PRINTER') => {
+    return printService.printLabel(
+      resolveLabelData(payload),
+      printerName,
+      payload?.print_job_id || null
+    );
   },
 
   checkPrinterStatus: async (printerName = 'DEFAULT_PRINTER') => {

@@ -236,6 +236,10 @@ CREATE TABLE pack360_header (
     target_unit_count INT,
     actual_unit_count INT,
     weight DECIMAL(18,4),
+    weight_source VARCHAR(20),
+    manual_weight_reason NVARCHAR(255),
+    print_job_id VARCHAR(50),
+    print_status VARCHAR(20),
     created_by NVARCHAR(50) NOT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     completed_by NVARCHAR(50),
@@ -254,6 +258,16 @@ CREATE TABLE pack360_unit (
     added_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     is_current BIT NOT NULL DEFAULT 1,
     PRIMARY KEY (pack360_id, id_60)
+);
+GO
+
+CREATE TABLE pack360_reprint_audit (
+    audit_id UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID() PRIMARY KEY,
+    pack360_id VARCHAR(50) NOT NULL,
+    reason NVARCHAR(255) NOT NULL,
+    user_code VARCHAR(50) NOT NULL,
+    print_job_id VARCHAR(50) NOT NULL,
+    created_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
 );
 GO
 

@@ -174,21 +174,29 @@ GO
 CREATE OR ALTER PROCEDURE usp_Pack360_Complete
     @pack360_id NVARCHAR(50),
     @weight DECIMAL(18,2),
-    @user_code NVARCHAR(50)
+    @user_code NVARCHAR(50),
+    @weight_source VARCHAR(20) = 'SCALE',
+    @manual_weight_reason NVARCHAR(255) = NULL,
+    @print_job_id VARCHAR(50) = NULL,
+    @print_status VARCHAR(20) = 'PENDING'
 AS
 BEGIN
     SET NOCOUNT ON;
+    SET XACT_ABORT ON;
     
     DECLARE @status NVARCHAR(30);
     DECLARE @first_qr_60 NVARCHAR(255);
     DECLARE @product_code NVARCHAR(50);
     DECLARE @channel NVARCHAR(50);
     
-    SELECT @status = status 
-    FROM pack360_header WITH (UPDLOCK, HOLDLOCK)
-    WHERE pack360_id = @pack360_id;
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        SELECT @status = status
+        FROM pack360_header WITH (UPDLOCK, HOLDLOCK)
+        WHERE pack360_id = @pack360_id;
     
-    IF @status <> 'OPEN'
+    IF ISNULL(@status, '') <> 'OPEN'
     BEGIN
         RAISERROR(N'Pack360 không ở trạng thái OPEN', 16, 1);
         RETURN;
@@ -199,6 +207,11 @@ BEGIN
     FROM pack360_unit u
     INNER JOIN tbl_thung60_kho t ON u.id_60 = t.id_60
     WHERE u.pack360_id = @pack360_id AND u.is_current = 1;
+
+    IF @first_qr_60 IS NULL OR @product_code IS NULL
+    BEGIN
+        RAISERROR(N'Pack360 không có thùng 60 hợp lệ để hoàn tất', 16, 1);
+    END
     
     -- Parse Channel từ QR (VD: K07/1/D.01-16/GT/l6/13/49)
     DECLARE @p1 INT = CHARINDEX('/', @first_qr_60)
@@ -214,20 +227,21 @@ BEGIN
     DECLARE @seq INT;
     
     SELECT @seq = ISNULL(MAX(CAST(REPLACE(pack360_qr, @prefix, '') AS INT)), 0) + 1
-    FROM pack360_header
+    FROM pack360_header WITH (UPDLOCK, HOLDLOCK)
     WHERE pack360_qr LIKE @prefix + '%' AND ISNUMERIC(REPLACE(pack360_qr, @prefix, '')) = 1;
     
     DECLARE @new_qr NVARCHAR(255) = @prefix + CAST(@seq AS NVARCHAR(10));
     
-    BEGIN TRY
-        BEGIN TRANSACTION;
-        
         UPDATE pack360_header
         SET status = 'COMPLETED',
             weight = @weight,
             completed_by = @user_code,
             completed_at = GETDATE(),
-            pack360_qr = @new_qr
+            pack360_qr = @new_qr,
+            weight_source = @weight_source,
+            manual_weight_reason = @manual_weight_reason,
+            print_job_id = @print_job_id,
+            print_status = @print_status
         WHERE pack360_id = @pack360_id;
 
         -- Ghi event COMPLETE_PACK
@@ -261,6 +275,47 @@ BEGIN
         IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
         DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
         RAISERROR(@ErrMsg, 16, 1);
+    END CATCH
+END
+GO
+
+CREATE OR ALTER PROCEDURE usp_Pack360_Reprint_Audit
+    @pack360_id VARCHAR(50),
+    @reason NVARCHAR(255),
+    @user_code VARCHAR(50),
+    @print_job_id VARCHAR(50) OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        IF NOT EXISTS (
+            SELECT 1
+            FROM pack360_header WITH (UPDLOCK, HOLDLOCK)
+            WHERE pack360_id = @pack360_id AND status = 'COMPLETED'
+        )
+            RAISERROR(N'Chỉ có thể in lại Pack360 ở trạng thái COMPLETED', 16, 1);
+
+        SET @print_job_id = REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', '');
+
+        INSERT INTO pack360_reprint_audit
+            (pack360_id, reason, user_code, print_job_id, created_at)
+        VALUES
+            (@pack360_id, @reason, @user_code, @print_job_id, SYSUTCDATETIME());
+
+        UPDATE pack360_header
+        SET print_job_id = @print_job_id,
+            print_status = 'PENDING'
+        WHERE pack360_id = @pack360_id;
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        THROW;
     END CATCH
 END
 GO

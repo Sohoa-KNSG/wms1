@@ -178,14 +178,14 @@ export default function Pack360Screen({ onBack, initialPackType }) {
   };
 
   const generateTSPL = (data) => {
-    return data.label_tspl || '';
+    return data.label_tspl || data.label_data || '';
   };
 
   const handlePrint = async (dataToPrint) => {
     try {
       const tsplCommand = generateTSPL(dataToPrint);
       if (!tsplCommand) throw new Error("Không có dữ liệu TSPL");
-      await printService.printLabel(tsplCommand);
+      await printService.printLabel(tsplCommand, 'DEFAULT_PRINTER', dataToPrint?.print_job_id);
       setStatusMsg({ text: 'Đã gửi lệnh in 2 tem thành công.', type: 'success' });
     } catch (error) {
       throw error;

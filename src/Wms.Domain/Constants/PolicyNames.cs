@@ -9,7 +9,6 @@ public static class PolicyNames
 
     public const string Pack360Read = "Pack360.Read";
     public const string Pack360Scan = "Pack360.Scan";
-    public const string Pack360ScanUnit = "Pack360.ScanUnit";
     public const string Pack360Complete = "Pack360.Complete";
     public const string Pack360Cancel = "Pack360.Cancel";
     public const string Pack360Release = "Pack360.Release";

@@ -132,7 +132,7 @@ export const AppRouter = () => {
       <Route
         path={ROUTES.PACK360}
         element={
-          <ProtectedRoute requiredPermission="Pack360.ScanUnit">
+          <ProtectedRoute requiredPermission="Pack360.Scan">
             <Pack360Screen onBack={handleBack} />
           </ProtectedRoute>
         }
