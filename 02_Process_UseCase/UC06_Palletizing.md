@@ -1,6 +1,6 @@
 # Phân tích Thiết kế Logic UC06 - Lập Pallet (Palletizing)
 
-Tài liệu này đi sâu vào phân tích hệ thống ở 3 khía cạnh: Business Logic (Nghiệp vụ), Programming Logic (Lập trình), và Data Logic (Dữ liệu) dành cho chức năng Lập Pallet.
+Tài liệu này đi sâu vào phân tích hệ thống ở 5 khía cạnh bắt buộc: **Business Logic**, **UI/UX Guidelines**, **Programming Logic**, **Data Logic**, và **Diagrams (Mermaid)** dành cho chức năng Lập Pallet.
 
 ---
 
@@ -16,80 +16,66 @@ Nhân viên gom các Thùng 60 lẻ hoặc các Pack360 đã hoàn thành lên m
 - **[BR-UC06-04] Đổi trạng thái hạt nhân:** Khi một đơn vị được gán vào Pallet thành công, `status` của Thùng 60 (trực tiếp hoặc nằm trong Pack360) sẽ chuyển sang `PALLETIZED` và hệ thống tự động cập nhật ID của Pallet vào tồn kho.
 - **[BR-UC06-05] Ghi vết Sự kiện (Event Logging):** Mọi thay đổi gán (assign) hoặc tháo (remove) Unit khỏi Pallet phải sinh ra log trong `thung60_event` và `audit_log` để truy vết vòng đời của kiện hàng.
 
-**Quy trình tương tác (Interaction Flow) - Giao diện Wizard (Step-by-step):**
-- **Bước 1 (Quét Gom Hàng):** 
-  - **Nhân viên kho:** Quét mã QR của các Thùng 60 hoặc Pack360 cần đưa lên Pallet. 
-  - **Hệ thống:** Các mã quét hợp lệ sẽ được lưu vào một danh sách tạm (List) trên giao diện thiết bị HHT. Nhân viên có thể nhấn xóa (Remove) nếu quét nhầm. Sau khi quét đủ số lượng cần thiết, nhân viên nhấn nút "Tiếp tục".
-- **Bước 2 (Xác định Pallet Đích):** 
-  - **Nhân viên kho:** Quét mã QR định danh được dán sẵn trên Pallet đích.
-  - **Hệ thống:** Tra cứu thông tin Pallet. Báo lỗi nếu mã vạch không đúng chuẩn hoặc Pallet đang bị khóa. Nếu hợp lệ, chuyển sang bước cuối.
-- **Bước 3 (Xác nhận & Hoàn tất):**
-  - **Nhân viên kho:** Xem lại bảng tóm tắt tổng quan (Số lượng kiện hàng sẽ gán, Mã Pallet đích) và nhấn "Xác nhận Lập Pallet".
-  - **Hệ thống:** Gọi API đồng loạt ghi nhận toàn bộ đơn vị hàng hóa vào Pallet, cập nhật trạng thái `status` thành `PALLETIZED`. Pallet tự động kích hoạt thành `ACTIVE` (hoặc giữ nguyên `IN_STORAGE` nếu đang ở trên kệ).
+**Quy trình tương tác (Interaction Flow):**
+- **Bước 1:** Nhân viên quét mã QR của các Thùng 60 hoặc Pack360. Các mã quét hợp lệ sẽ được lưu vào một danh sách tạm (List) trên giao diện HHT.
+- **Bước 2:** Quét mã QR định danh được dán sẵn trên Pallet đích.
+- **Bước 3:** Xem lại bảng tóm tắt và nhấn "Xác nhận Lập Pallet". Hệ thống gọi API đồng loạt ghi nhận toàn bộ đơn vị hàng hóa vào Pallet, cập nhật trạng thái.
 
 ---
 
-## 2. Programming Logic (Logic Lập Trình)
+## 2. Tiêu chuẩn Thiết kế Giao diện (UI/UX Guidelines)
 
-Quy trình xử lý mã lệnh được chia thành 2 lớp: Frontend (React) và Backend (Node.js/Express). 
-
-### 2.1. Frontend (React - `PalletScreen.jsx`)
-- **Quản lý State theo Wizard:** 
-  - Giao diện (UI) sử dụng cơ chế Step (hoặc Tabs) để điều hướng người dùng tuần tự qua 3 bước, tránh việc quét nhầm lẫn giữa mã Hàng và mã Pallet.
-  - Sử dụng một Mảng (Array State) lưu trữ danh sách các mã QR hàng hóa quét được tại Bước 1. Mỗi lần quét sẽ gọi hàm chặn trùng lặp mã trong mảng cục bộ.
-- **Luồng bất đồng bộ (Async Flow):**
-  - Tại Bước 2: Bắn API `GET /api/pallets/{id}/validate` (hoặc GetPalletInfo) để xác minh tính tồn tại của Pallet và hiển thị thông tin cảnh báo nếu cần.
-  - Tại Bước 3: Bắn API `POST /api/pallets/assign` kèm payload chứa ID Pallet đích và mảng các mã QR hàng hóa. Nhận HTTP 200 để báo thành công (Hiển thị Tick xanh / Âm thanh).
-
-### 2.2. Backend (Node.js - `pallet.js`)
-- **API `POST /assign`:**
-  - Mở một Transaction SQL ngay khi bắt đầu xử lý.
-  - Duyệt qua mảng hàng hóa được gửi lên. Gọi Stored Procedure (hoặc chạy câu SQL hàng loạt) để đối chiếu tình trạng tồn kho của từng kiện hàng. 
-  - Cập nhật bảng `pallet` chuyển status sang `ACTIVE` nếu Pallet đang là `CREATED`.
-  - Cập nhật bảng `tbl_thung60_kho` để set `status = 'PALLETIZED'` và `current_pallet_id = [Mã Pallet]`.
-  - Nếu gặp bất cứ mã hàng nào không hợp lệ (Đã bị xuất, đang khóa QC, ...), `throw Error` kích hoạt Rollback toàn bộ Transaction và trả về mã lỗi 400.
+- **Thiết bị đích:** Máy quét mã vạch cầm tay HHT (Zebra/Honeywell) hoặc Máy tính bảng Tablet gắn trên xe nâng.
+- **Yêu cầu trải nghiệm (UX Principles):**
+  - **Giao diện dạng Wizard (Step-by-step):** Tránh việc quét nhầm giữa mã Hàng và mã Pallet bằng cách tách biệt màn hình quét hàng hóa (Bước 1) và màn hình quét Pallet đích (Bước 2).
+  - **Hiển thị tiến độ rõ ràng:** Ở bước 1, mỗi khi quét thành công một mã hàng, hệ thống phát ra âm thanh Beep ngắn, số đếm kiện hàng tăng lên và mã kiện hàng xuất hiện ở đầu danh sách.
+  - **Cảnh báo lỗi dễ hiểu:** Nếu quét phải mã không khả dụng (đã bán, đang bị QC khóa), màn hình sẽ hiện popup đỏ toàn màn hình kèm âm Beep dài để nhân viên lập tức dừng thao tác.
 
 ---
 
-## 3. Data Logic (Logic Dữ Liệu)
+## 3. Programming Logic (Logic Lập Trình)
 
-### 3.1. Cây quyết định (Decision Tree - Validation)
-Tại API gán hàng vào Pallet, hệ thống kiểm duyệt ngặt nghèo theo các bước:
-1. Payload gửi lên có rỗng không? -> Lỗi nếu danh sách hàng hóa trống.
-2. Mã Pallet đích có hợp lệ không? -> Lỗi nếu mã Pallet sai định dạng hoặc Pallet đang bị `LOCKED`.
-3. Từng kiện hàng (Thùng 60 / Pack 360) có trạng thái khả dụng không? -> Lỗi nếu `status` nằm trong nhóm cấm (`SHIPPED`, `SCRAPPED`).
-4. Xử lý đồng thời (Race Condition): Thùng 60 đã nằm trên Pallet khác chưa? -> Lỗi nếu `current_pallet_id` hiện tại đang khác `NULL`.
+### 3.1. Frontend Component (`PalletScreen.jsx`)
+- Sử dụng Mảng (Array State) lưu trữ danh sách các mã QR hàng hóa quét được tại Bước 1. Mỗi lần quét sẽ gọi hàm chặn trùng lặp mã trong mảng cục bộ.
+- Bắn API `GET /api/pallets/{id}/validate` để xác minh tính tồn tại của Pallet và hiển thị thông tin cảnh báo nếu cần.
+- Bắn API `POST /api/pallets/assign` kèm payload chứa ID Pallet đích và mảng các mã QR hàng hóa. 
 
-### 3.2. Cấu trúc bảng & Ghi nhận dữ liệu
-- **Bảng `pallet`:** Nắm giữ thông tin định danh và trạng thái tổng. Nếu Pallet rỗng hoàn toàn, trạng thái là `CREATED`. Có hàng là `ACTIVE`.
-- **Bảng `pallet_unit`:** Bảng mapping n-n (Nhiều-Nhiều). Đóng vai trò ghi nhận những hàng hóa nào đang nằm trên Pallet nào (`is_current = 1`).
-- **Bảng `thung60_event`:** 
-  - Khi Transaction commit thành công, hệ thống phải sinh ra các dòng log `event_type = 'PALLETIZED'` cho từng `id_60` bị tác động để lưu vết kiểm toán (Audit).
-
-### 3.3. Ma trận Phân quyền & CRUD (CRUD Matrix)
-Bảng dưới đây mô tả quyền hạn tác động dữ liệu (Create, Read, Update, Delete) của các Roles trên hệ thống trong phạm vi UC06.
-
-| Bảng (Table) | Worker (Nhân viên kho) | Storekeeper (Thủ kho) | System (Hệ thống tự động) |
-| :--- | :---: | :---: | :---: |
-| `pallet` | R / U | R / U | C / R / U |
-| `pallet_unit` | C / R / U | C / R / U | C / R / U |
-| `tbl_thung60_kho` | R | R | R / U |
-| `thung60_event` | None | R | C |
-
-*(Ghi chú: C = Create, R = Read, U = Update, D = Delete. Hệ thống WMS áp dụng nguyên tắc không xóa cứng (No Delete) trên các bảng dữ liệu lõi, chỉ đổi trạng thái hoặc set `is_current = 0`).*
+### 3.2. Backend API & Stored Procedure (`10_UC06_Palletizing_SPs.sql`)
+- Mở một Transaction SQL ngay khi bắt đầu xử lý `usp_WMS_UC06_AddUnitToPallet`.
+- **Fail-fast:** Duyệt qua mảng hàng hóa được gửi lên. Nếu gặp bất cứ mã hàng nào không hợp lệ (Đã bị xuất, đang khóa QC, đã nằm trên pallet khác), `RAISERROR` kích hoạt Rollback toàn bộ Transaction và trả về mã lỗi 400.
+- Cập nhật bảng `pallet` chuyển status sang `ACTIVE` nếu Pallet đang là `CREATED`.
+- Cập nhật bảng `tbl_thung60_kho` để set `status = 'PALLETIZED'` và `current_pallet_id = [Mã Pallet]`.
 
 ---
 
-## 4. Biểu Đồ Thiết Kế (Diagrams)
+## 4. Data Logic (Thiết kế Dữ Liệu)
 
-### 4.1. Sequence Diagram (Biểu đồ tuần tự)
+### 4.1. Ma trận phân quyền CRUD
+
+| Bảng / Thực thể Dữ Liệu | Create (Tạo) | Read (Đọc) | Update (Cập nhật) | Delete (Xóa) | Ý nghĩa nghiệp vụ trong UC06 |
+| :--- | :---: | :---: | :---: | :---: | :--- |
+| `pallet` | **X** | **X** | **X** | - | Khởi tạo hoặc Cập nhật trạng thái tổng của Pallet. |
+| `pallet_unit` | **X** | **X** | **X** | - | Bảng mapping nhiều-nhiều. Ghi nhận hàng hóa nằm trên Pallet (`is_current = 1`). |
+| `tbl_thung60_kho` | - | **X** | **X** | - | Cập nhật `status = PALLETIZED` và gán `current_pallet_id`. |
+| `thung60_event` | **X** | **X** | - | - | Ghi log sự kiện đổi trạng thái vòng đời. |
+
+### 4.2. Phân tích Sổ cái Kép (Dual Ledger)
+
+- **Nguyên tắc hạch toán:** Tác vụ Lập Pallet (Palletizing) bản chất là thao tác **Gom Hàng Vật Lý** (đưa các thùng lẻ lên một kệ gỗ/nhựa chung). Nó hoàn toàn không làm thay đổi số lượng tồn kho (Quantity), không thay đổi quyền sở hữu hàng hóa, và không làm thay đổi trạng thái tự do lưu thông của hàng hóa (UNRESTRICTED).
+- **Kết luận Sổ cái:** Do đó, luồng UC06 **KHÔNG ghi nhận bất kỳ bút toán nào vào Sổ cái Kép** (`stock_transaction_book`, `inventory_ledger`, `item_ledger`). Mọi truy vết của kiện hàng ở cấp độ nội bộ kho được đáp ứng đủ thông qua bảng `thung60_event` và sự thay đổi trong `tbl_thung60_kho`.
+
+---
+
+## 5. Biểu Đồ Thiết Kế (Diagrams)
+
+### 5.1. Sequence Diagram (Luồng Trạng thái Tương tác)
 
 ```mermaid
 sequenceDiagram
-    participant TK as "Thủ Kho"
-    participant UI as "Giao Diện (React Wizard)"
-    participant API as "Backend (Node.js)"
-    participant DB as "SQL Server (WMS)"
+    participant TK as Thủ Kho / Nhân viên HHT
+    participant UI as Giao Diện (React Wizard)
+    participant API as Backend (Node.js)
+    participant DB as SQL Server (WMS)
 
     rect rgb(240, 248, 255)
     Note over TK,UI: Bước 1: Quét Gom Hàng
@@ -113,18 +99,17 @@ sequenceDiagram
     rect rgb(240, 255, 240)
     Note over TK,DB: Bước 3: Xác nhận & Hoàn tất
     TK->>UI: Nhấn "Xác nhận Lập Pallet"
-    UI->>API: POST /api/pallets/assign
+    UI->>API: POST /api/pallets/assign (Payload: PalletID + Array[QR])
     
-    Note right of API: Payload: PalletID + Array[Danh sách QR]
-    API->>DB: Khởi chạy Transaction Validation
+    API->>DB: Khởi chạy Transaction (Fail-fast)
     alt Có kiện hàng sai trạng thái
-        DB-->>API: Báo lỗi mã không khả dụng
+        DB-->>API: Báo lỗi mã không khả dụng (RAISERROR)
         API-->>UI: Rollback & HTTP 400 Bad Request
         UI-->>TK: Hiển thị Popup Đỏ / Còi báo lỗi
     else Hợp lệ 100%
         API->>DB: INSERT pallet_unit (is_current = 1)
         API->>DB: UPDATE tbl_thung60_kho (status = PALLETIZED)
-        API->>DB: Ghi log sự kiện
+        API->>DB: Ghi log sự kiện (thung60_event)
         DB-->>API: Commit thành công
         API-->>UI: HTTP 200 OK
         UI-->>TK: Xóa List tạm & Báo thành công
@@ -132,23 +117,61 @@ sequenceDiagram
     end
 ```
 
-### 4.2. Data Flow Diagram (Biểu đồ luồng dữ liệu)
+### 5.2. Data Layer Architecture (Data Flow & Validation)
 
 ```mermaid
 flowchart TD
-    A["Thủ kho Quét Hàng Hóa"] -->|Lưu Local State| B("Frontend UI (Tab Lập Pallet)")
-    A2["Thủ kho Quét Mã Pallet"] -->|Định danh Đích| B
+    A["API Request: POST /api/pallets/assign"] --> B[Mở SQL Transaction]
     
-    B -->|POST /assign (Array Items + PalletID)| C["API: Gán Hàng Lên Pallet"]
+    B --> C{Fail-fast: Kiểm tra Trạng Thái Hàng}
+    C -- "Trạng thái không hợp lệ
+Hoặc đã thuộc Pallet khác" --> ERR[RAISERROR & Rollback]
     
-    C -->|1. Xác thực trạng thái Tồn kho| D[("[WMS1].[dbo].[tbl_thung60_kho]")]
-    D -.->|Báo lỗi nếu hàng không rảnh| C
+    C -- Hợp lệ --> D[INSERT INTO pallet_unit]
+    D --> E[UPDATE tbl_thung60_kho
+status = 'PALLETIZED'
+current_pallet_id = ID]
+    E --> F[UPDATE pallet
+status = 'ACTIVE']
+    F --> G[INSERT INTO thung60_event]
+    G --> H[COMMIT Transaction]
     
-    C -->|2. Liên kết Hàng - Pallet| E[(Bảng: pallet_unit)]
-    
-    C -->|3. Cập nhật ID Pallet & Trạng thái| D
-    
-    C -->|4. Kích hoạt Pallet| F[(Bảng: pallet)]
-    
-    C -->|5. Ghi nhận Audit Log| G[(Bảng: thung60_event)]
+    H --> I([Trả về HTTP 200 OK])
+```
+
+### 5.3. Entity Relationship & State Logic Map (ERD Map UC06)
+
+```mermaid
+erDiagram
+    pallet ||--o{ pallet_unit : "chứa"
+    tbl_thung60_kho ||--o| pallet_unit : "liên kết với"
+    tbl_thung60_kho ||--o{ thung60_event : "sinh vết"
+
+    pallet {
+        string pallet_id PK
+        string pallet_type
+        string status "'CREATED' / 'ACTIVE'"
+        datetime created_at
+    }
+
+    pallet_unit {
+        bigint id PK
+        string pallet_id FK
+        string unit_id FK "Thùng 60 / Pack360"
+        string unit_type "'THUNG60' / 'PACK360'"
+        boolean is_current "1 (Active)"
+    }
+
+    tbl_thung60_kho {
+        string id_60 PK
+        string status "'PALLETIZED'"
+        string current_pallet_id FK
+    }
+
+    thung60_event {
+        guid event_id PK
+        string id_60 FK
+        string event_type "'PALLETIZED'"
+        string new_status
+    }
 ```
