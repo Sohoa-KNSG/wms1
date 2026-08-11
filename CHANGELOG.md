@@ -1,3 +1,10 @@
+- **Thời gian**: 2026-08-11
+- **Tên Task/Milestone**: Hoàn tất chuyển đổi kiến trúc sang ASP.NET
+- **Nội dung thay đổi**:
+  - Xóa bỏ toàn bộ thư mục `backend/` (chứa mã nguồn Node.js cũ) do hệ thống thực tế đã chạy 100% trên ASP.NET.
+  - Cập nhật cấu hình `frontend/vite.config.js` thêm ghi chú rõ ràng về việc proxy `/api` sang Kestrel ASP.NET (`127.0.0.1:5000`).
+  - Lưu lại kế hoạch dọn dẹp tại `docs/history/Phase_Backend_Cleanup_implementation_plan.md`.
+
 - **Thời gian**: 2026-08-10
 - **Tên Task/Milestone**: Fix Bug UC04 (Double-Confirm)
 - **Nội dung thay đổi**:

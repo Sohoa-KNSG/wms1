@@ -9,6 +9,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
+        // Proxy to ASP.NET Core Wms.Api
         target: 'http://127.0.0.1:5000',
         changeOrigin: true,
         secure: false
