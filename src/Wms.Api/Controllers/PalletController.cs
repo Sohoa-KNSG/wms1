@@ -36,7 +36,7 @@ public class PalletController : ControllerBase
         };
 
         var data = await _spExecutor.QueryFirstOrDefaultAsync<dynamic>("usp_WMS_UC06_InitPallet", parameters);
-        return Ok(ApiResponse<object>.Success(data));
+        return Ok(ApiResponse<object>.Success(data as IDictionary<string, object>));
     }
 
     [HttpPost("{id}/add-unit")]
@@ -51,7 +51,7 @@ public class PalletController : ControllerBase
         };
 
         var data = await _spExecutor.QueryFirstOrDefaultAsync<dynamic>("usp_WMS_UC06_AddUnitToPallet", parameters);
-        return Ok(ApiResponse<object>.Success(data));
+        return Ok(ApiResponse<object>.Success(data as IDictionary<string, object>));
     }
 
     [HttpPost("{id}/complete")]
@@ -64,7 +64,7 @@ public class PalletController : ControllerBase
         };
 
         var data = await _spExecutor.QueryFirstOrDefaultAsync<dynamic>("usp_WMS_UC06_CompletePallet", parameters);
-        return Ok(ApiResponse<object>.Success(data));
+        return Ok(ApiResponse<object>.Success(data as IDictionary<string, object>));
     }
 
     [HttpPost("remove-unit")]
@@ -79,7 +79,7 @@ public class PalletController : ControllerBase
         };
 
         var data = await _spExecutor.QueryFirstOrDefaultAsync<dynamic>("usp_WMS_UC06_1_RemoveUnit", parameters);
-        return Ok(ApiResponse<object>.Success(data));
+        return Ok(ApiResponse<object>.Success(data as IDictionary<string, object>));
     }
 
     [HttpPost("transfer-unit")]
@@ -95,7 +95,7 @@ public class PalletController : ControllerBase
         };
 
         var data = await _spExecutor.QueryFirstOrDefaultAsync<dynamic>("usp_WMS_UC06_1_TransferUnit", parameters);
-        return Ok(ApiResponse<object>.Success(data));
+        return Ok(ApiResponse<object>.Success(data as IDictionary<string, object>));
     }
 
     [HttpGet("{id}/info")]
@@ -113,7 +113,11 @@ public class PalletController : ControllerBase
         var summary = await multi.ReadAsync<dynamic>();
         var details = await multi.ReadAsync<dynamic>();
 
-        return Ok(ApiResponse<object>.Success(new { pallet, summary, details }));
+        return Ok(ApiResponse<object>.Success(new { 
+            pallet = pallet as IDictionary<string, object>, 
+            summary = summary.Select(r => (IDictionary<string, object>)r), 
+            details = details.Select(r => (IDictionary<string, object>)r) 
+        }));
     }
 
     [HttpPost("{id}/putaway")]
@@ -127,7 +131,7 @@ public class PalletController : ControllerBase
         };
 
         var data = await _spExecutor.QueryFirstOrDefaultAsync<dynamic>("usp_WMS_UC11_PutawayPallet", parameters);
-        return Ok(ApiResponse<object>.Success(data));
+        return Ok(ApiResponse<object>.Success(data as IDictionary<string, object>));
     }
 
     [HttpPost("{id}/letdown")]
@@ -140,7 +144,7 @@ public class PalletController : ControllerBase
         };
 
         var data = await _spExecutor.QueryFirstOrDefaultAsync<dynamic>("usp_WMS_UC11_LetdownPallet", parameters);
-        return Ok(ApiResponse<object>.Success(data));
+        return Ok(ApiResponse<object>.Success(data as IDictionary<string, object>));
     }
 }
 

@@ -247,7 +247,7 @@ public class ReportsController : ControllerBase
     {
         using var connection = await _connectionFactory.CreateConnectionAsync();
         var sql = "SELECT * FROM vw_WMS_UC22_3_ABC_XYZ_Analysis";
-        var result = await connection.QueryAsync(sql);
+        var result = (await connection.QueryAsync(sql)).Select(r => (IDictionary<string, object>)r);
         return Ok(ApiResponse<object>.Success(result));
     }
 
@@ -256,7 +256,7 @@ public class ReportsController : ControllerBase
     {
         using var connection = await _connectionFactory.CreateConnectionAsync();
         var sql = "EXEC usp_WMS_UC22_3_GetWarehouseHeatmap";
-        var result = await connection.QueryAsync(sql);
+        var result = (await connection.QueryAsync(sql)).Select(r => (IDictionary<string, object>)r);
         return Ok(ApiResponse<object>.Success(result));
     }
 
@@ -265,7 +265,7 @@ public class ReportsController : ControllerBase
     {
         using var connection = await _connectionFactory.CreateConnectionAsync();
         var sql = "EXEC usp_WMS_UC22_4_GetPickingPerformanceKPI";
-        var result = await connection.QueryAsync(sql);
+        var result = (await connection.QueryAsync(sql)).Select(r => (IDictionary<string, object>)r);
         return Ok(ApiResponse<object>.Success(result));
     }
 
@@ -274,7 +274,7 @@ public class ReportsController : ControllerBase
     {
         using var connection = await _connectionFactory.CreateConnectionAsync();
         var sql = "EXEC usp_WMS_UC22_5_GetStockAgingPrediction";
-        var result = await connection.QueryAsync(sql);
+        var result = (await connection.QueryAsync(sql)).Select(r => (IDictionary<string, object>)r);
         return Ok(ApiResponse<object>.Success(result));
     }
 
@@ -283,7 +283,7 @@ public class ReportsController : ControllerBase
     {
         using var connection = await _connectionFactory.CreateConnectionAsync();
         var sql = "EXEC usp_WMS_UC22_6_ReconcilePhysicalVsLedger";
-        var result = await connection.QueryAsync(sql);
+        var result = (await connection.QueryAsync(sql)).Select(r => (IDictionary<string, object>)r);
         return Ok(ApiResponse<object>.Success(result));
     }
 }

@@ -1,4 +1,12 @@
 - **Thời gian**: 2026-08-11
+- **Tên Task/Milestone**: Tích hợp Báo Cáo Thông Minh (UC22) & Fix API UC06
+- **Nội dung thay đổi**:
+  - API C#: Khắc phục lỗi Dapper Serialization cho `QueryFirstOrDefaultAsync<dynamic>`, ép kiểu về `IDictionary<string, object>` để trả về JSON chuẩn, áp dụng vào `ReportsController` và `PalletController`.
+  - Backend: Chuyển đổi mã nguồn báo cáo Smart Analytics (UC22) chạy ASP.NET.
+  - Kiểm thử: Viết script SQL thực thi Unit Test luồng UC06.1 (Remove Unit) với các điều kiện ràng buộc.
+  - Tài liệu: Bổ sung màn hình báo cáo Smart Analytics vào bảng danh mục `Screen_Catalog.md` và thêm quy chuẩn hiển thị bảng màu vào `UI_Rules.md`.
+
+- **Thời gian**: 2026-08-11
 - **Tên Task/Milestone**: Hoàn tất chuyển đổi kiến trúc sang ASP.NET
 - **Nội dung thay đổi**:
   - Xóa bỏ toàn bộ thư mục `backend/` (chứa mã nguồn Node.js cũ) do hệ thống thực tế đã chạy 100% trên ASP.NET.
