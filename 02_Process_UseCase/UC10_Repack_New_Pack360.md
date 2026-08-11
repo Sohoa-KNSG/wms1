@@ -56,7 +56,7 @@ sequenceDiagram
     actor NV as Nhân viên đóng gói
     participant HW as Hardware (Cân/Máy in)
     participant UI as Web App (React)
-    participant API as Backend (Node.js)
+    participant API as Backend (ASP.NET Core C#)
     participant DB as SQL Server
 
     NV->>UI: Chọn chức năng Đóng lại (Repack)

@@ -74,7 +74,7 @@ Nhân viên gom các Thùng 60 lẻ hoặc các Pack360 đã hoàn thành lên m
 sequenceDiagram
     participant TK as Thủ Kho / Nhân viên HHT
     participant UI as Giao Diện (React Wizard)
-    participant API as Backend (Node.js)
+    participant API as Backend (ASP.NET Core C#)
     participant DB as SQL Server (WMS)
 
     rect rgb(240, 248, 255)

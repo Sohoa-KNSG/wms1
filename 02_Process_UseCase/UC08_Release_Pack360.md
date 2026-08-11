@@ -61,7 +61,7 @@ graph TD
 sequenceDiagram
     actor TK as Thủ kho / NV Kho
     participant UI as HHT / Web App
-    participant API as Backend (Node.js)
+    participant API as Backend (ASP.NET Core C#)
     participant DB as SQL Server (Stored Procedure)
 
     TK->>UI: Quét/Nhập mã Pack360

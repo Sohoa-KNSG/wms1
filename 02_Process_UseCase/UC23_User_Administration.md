@@ -47,7 +47,7 @@ Các quy tắc nghiệp vụ (Business Rules):
 - **Xử lý UC23.3 (Reset Password):** Gọi `PUT /api/admin/users/:id/reset-password`. Nếu thành công, hiển thị Alert thông báo mật khẩu mặc định mới để Admin gửi cho User.
 - **Xử lý UC23.4 (Gán Role):** Sử dụng Multi-select Dropdown (hoặc Checkbox Group) trong form chỉnh sửa User. Gọi `PUT /api/admin/users/:id/roles`.
 
-### 2.2. Backend (Node.js/Express)
+### 2.2. Backend (ASP.NET Core C#)
 - **Middleware `requireAdmin`:** Tất cả các endpoints trong bộ UC23 đều phải đi qua Middleware xác thực xem tài khoản thực hiện request có chứa Role `ADMIN` hay không (Trích xuất từ JWT).
 - **API `POST /api/admin/users` (Tạo mới):** 
   - Dùng `bcrypt.hash` để mã hóa mật khẩu mặc định (SaltRounds = 10).

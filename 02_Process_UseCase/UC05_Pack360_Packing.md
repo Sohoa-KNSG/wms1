@@ -96,7 +96,7 @@ sequenceDiagram
     actor NV as Thủ Kho / Nhân Viên
     participant UI as Web App React
     participant LCL as Localhost Scale/Print Bridge
-    participant API as Backend Service (C# / Node.js)
+    participant API as Backend Service (ASP.NET Core C#)
     participant DB as MSSQL Database (WMS1)
 
     NV->>UI: Chọn Chế độ & Quét các mã QR Thùng 60

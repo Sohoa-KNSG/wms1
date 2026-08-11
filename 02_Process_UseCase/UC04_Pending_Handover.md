@@ -292,7 +292,7 @@ sequenceDiagram
     autonumber
     actor TK as Thủ Kho (Storekeeper)
     participant UI as React Frontend (StorekeeperConfirmOverview)
-    participant API as Web API (.NET 8 / Node.js)
+    participant API as Web API (.NET 8 C#)
     participant SP as SQL SP (usp_WMS_UC04_ConfirmNhapKho)
     participant WMS as CSDL WMS1 (Ledger & Stock)
     participant PKG as CSDL Packaging (tbl_thung60)

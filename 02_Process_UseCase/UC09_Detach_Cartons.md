@@ -62,7 +62,7 @@ graph TD
 sequenceDiagram
     actor NVK as Nhân viên kho
     participant UI as HHT / Web App
-    participant API as Backend (Node.js)
+    participant API as Backend (ASP.NET Core C#)
     participant DB as SQL Server (SP)
 
     NVK->>UI: Mở Pack360, chọn các Thùng 60 cần tách

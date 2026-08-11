@@ -244,7 +244,7 @@ public record ScanThung60Request(string HandoverNo, string LineNo, string Produc
 public record CancelScanRequest(long ScanLogId, string? Reason);
 ```
 
-#### B. Node.js Express Router Route (`/api/v1/receipt`)
+#### B. ASP.NET Core Web API Route (`/api/v1/receipt`)
 
 ```javascript
 const express = require('express');

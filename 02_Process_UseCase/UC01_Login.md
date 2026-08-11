@@ -60,7 +60,7 @@ Tài liệu này đi sâu vào phân tích và thiết kế toàn diện ở 5 k
   };
   ```
 
-### 3.2. Backend API (.NET 8 C# & Node.js Dual Engine)
+### 3.2. Backend API (.NET 8 C#)
 
 #### A. C# .NET 8 Web API (`AuthController.cs` & `AuthService.cs`)
 - **Endpoint:** `POST /api/v1/auth/login` (`[AllowAnonymous]`)
@@ -201,7 +201,7 @@ sequenceDiagram
     autonumber
     actor User as Người dùng (Actor)
     participant UI as React Frontend (LoginScreen)
-    participant API as Web API (.NET / Node.js)
+    participant API as Web API (.NET 8 C#)
     participant Auth as AuthService / JwtTokenService
     participant DB as SQL Server (sec_user)
 

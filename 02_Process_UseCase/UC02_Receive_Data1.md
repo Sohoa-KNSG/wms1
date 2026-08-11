@@ -71,7 +71,7 @@ Hệ thống WMS **không tin tưởng mã quăng dữ liệu trực tiếp từ
 
 ### 3.3. Backend API & Stored Procedure Execution
 - **Endpoints:**
-  - Node.js Express: `POST /api/v1/receipt/map-order` 
+  - ASP.NET Core Web API: `POST /api/v1/receipt/map-order` 
   - .NET Core Controller: `POST /api/v1/receipt/handover/map-order` (`ReceiptController.cs`).
 - **Stored Procedure Core Logic (`usp_WMS_UC02_UpdateMaDonHang`):**
 ```sql
@@ -155,7 +155,7 @@ sequenceDiagram
     autonumber
     actor User as Nhân viên kho
     participant UI as React Frontend (ReceiptDetail)
-    participant API as Node.js / ASP.NET Core API
+    participant API as ASP.NET Core Web API
     participant DB as SQL Server (WMS DB)
     participant ERP as ERP Read-Only Views
 
