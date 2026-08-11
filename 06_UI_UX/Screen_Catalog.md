@@ -18,6 +18,9 @@ Tài liệu này thống kê toàn bộ danh mục các màn hình giao diện (
 | **8** | **SCR-OEM-01** | Màn hình Quản Lý Đơn Hàng OEM | UC07 OEM Management | Master | 🟢 Hoàn thành |
 | **9** | **SCR-INV-01** | Màn hình Báo Cáo Nhập-Xuất-Tồn & Kệ Kho | UC08 Stock Report | Reports | 🟢 Hoàn thành |
 | **10** | **SCR-MST-01** | Màn hình Quản Lý Danh Mục (Xe, Tài Xế, Bảo Vệ) | UC15 Master Data | Master | 🟢 Hoàn thành |
+| **11** | **SCR-RPT-SMART** | Trung Tâm Báo Cáo Thông Minh (WMS Smart BI & Analytics) | UC22.1 - UC22.6 | Reports | 🟢 Hoàn thành |
+| **12** | **SCR-RPT-MULTI** | Màn hình Báo Cáo Tồn Kho Multi-Tier | UC22.1 Multi-Tier | Reports | 🟢 Hoàn thành |
+| **13** | **SCR-RPT-LEDGER** | Màn hình Báo Cáo Sổ Cái Kép (Dual Ledger) | UC22.2 Dual Ledger | Reports | 🟢 Hoàn thành |
 
 ---
 

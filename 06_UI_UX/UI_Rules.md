@@ -40,7 +40,29 @@ Tài liệu này định nghĩa bộ quy tắc thiết kế giao diện người
 
 ---
 
-## 3. Quy Chuẩn Đáp Ứng Thiết Bị (Device Responsive Guidelines)
+## 3. Quy Chuẩn Màu Sắc Phân Tích Thông Minh (Smart Analytics Colors)
+
+Đối với các trang Dashboard Báo cáo, bắt buộc sử dụng hệ màu cảnh báo trực quan:
+
+1. **Warehouse Heatmap (Mật độ tồn kho):**
+   - Rất Cao (Very High): Nền `#fee2e2` / Border `#fca5a5` / Text `#991b1b`
+   - Cao (High): Nền `#ffedd5` / Border `#fdba74` / Text `#9a3412`
+   - Trung Bình (Medium): Nền `#fef9c3` / Border `#fde047` / Text `#854d0e`
+   - Thấp (Low): Nền `#f0fdf4` / Border `#86efac` / Text `#166534`
+
+2. **ABC/XYZ Analysis (Phân loại tồn kho):**
+   - Hàng loại A (Sản lượng lớn): Badge nền `#dcfce7` / Text `#15803d`
+   - Hàng loại B (Sản lượng vừa): Badge nền `#fef3c7` / Text `#b45309`
+   - Hàng loại C (Sản lượng ít): Badge nền `#fee2e2` / Text `#b91c1c`
+   - XYZ: Đồng nhất Badge nền `#e0f2fe` / Text `#0369a1`
+
+3. **KPI & Cảnh Báo (Aging/Reconciliation):**
+   - Quá Hạn / Chênh Lệch (Critical/Discrepancy): Chữ hoặc Badge đỏ đậm `#dc2626`
+   - An Toàn / Khớp Sổ (Matched/Fast Moving): Chữ hoặc Badge xanh lá `#15803d`
+
+---
+
+## 4. Quy Chuẩn Đáp Ứng Thiết Bị (Device Responsive Guidelines)
 
 1. **Thiết Bị Cầm Tay PDA Quét Mã Vạch (Handheld Barcode Scanner):**
    - Màn hình nhỏ (4.7 - 6 inch): Tự động thu gọn bảng, phóng to ô nhập scanner (`font-size: 1.25rem`, `padding: 1rem`).
