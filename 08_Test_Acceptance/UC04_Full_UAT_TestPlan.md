@@ -98,17 +98,6 @@ Mỗi lần chạy lại phải dùng phiếu/mã thùng mới hoặc khôi ph�
 | UC04-ERR-07 | Phiếu không tồn tại | Gửi mã phiếu giả | API trả `404` hoặc mã lỗi chuẩn đã thống nhất |  |  |  |  |
 | UC04-ERR-08 | Xác nhận lại phiếu hoàn tất | Gửi lại D10 | Không tạo transaction, tồn kho hoặc ledger thứ hai |  |  |  |  |
 
-### 6.4. UC04.2 – Hủy kết quả quét
-
-| Mã TC | Kịch bản | Bước thực hiện | Kết quả mong đợi | Trạng thái (Pass/Fail) | Người Test | Ngày Test | Ghi chú (Bug ID) |
-| :--- | :--- | :--- | :--- | :---: | :--- | :--- | :--- |
-| UC04.2-HP-01 | Hủy phiếu chưa xác nhận | Nhập lý do và hủy D11 | Các scan active chuyển `CANCELLED`, `IsDeleted = 1`; tiến độ về đúng giá trị |  |  |  |  |
-| UC04.2-HP-02 | Audit hủy | Kiểm tra audit sau HP-01 | Có phiếu, lý do, user, thời gian, IP/device và request ID thực |  |  |  |  |
-| UC04.2-ERR-01 | Thiếu lý do | Gửi lý do trống | API từ chối validation; dữ liệu không đổi |  |  |  |  |
-| UC04.2-ERR-02 | Phiếu đã ghi ledger | Hủy D10 | Trả xung đột; không xóa scan hoặc ledger |  |  |  |  |
-| UC04.2-ERR-03 | Phiếu không có scan active | Hủy phiếu rỗng | Trả lỗi phù hợp; không tạo audit “thành công” giả |  |  |  |  |
-| UC04.2-ERR-04 | Hủy lại | Gửi lại request hủy đã thành công | Không tạo thay đổi lặp; kết quả idempotent hoặc trả xung đột rõ ràng |  |  |  |  |
-
 ### 6.5. Phân quyền và bảo mật
 
 | Mã | Kịch bản | Kết quả mong đợi |
