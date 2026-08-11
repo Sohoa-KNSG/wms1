@@ -13,7 +13,7 @@ Rà soát toàn bộ source và tài liệu Full UAT, xử lý các lỗi Critic
 3. Chạy baseline build, test, lint, audit và runtime smoke. — Hoàn thành
 4. Sửa các khoảng trống Critical/High về secret, authorization/session, UC18, picking, idempotency và dual ledger. — Hoàn thành
 5. Chạy lại quality gates và lập báo cáo nghiệm thu trung thực. — Hoàn thành
-6. Commit, push nhánh và mở Draft PR; không merge. — Chờ bước phát hành cuối
+6. Commit, push nhánh và mở Draft PR; không merge. — Hoàn thành tại PR #3
 
 ## Giới hạn an toàn
 
