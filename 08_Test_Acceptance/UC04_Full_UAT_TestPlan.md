@@ -98,22 +98,6 @@ Mỗi lần chạy lại phải dùng phiếu/mã thùng mới hoặc khôi ph�
 | UC04-ERR-07 | Phiếu không tồn tại | Gửi mã phiếu giả | API trả `404` hoặc mã lỗi chuẩn đã thống nhất |  |  |  |  |
 | UC04-ERR-08 | Xác nhận lại phiếu hoàn tất | Gửi lại D10 | Không tạo transaction, tồn kho hoặc ledger thứ hai |  |  |  |  |
 
-### 6.3. UC04.1 – Nhập lẻ và thùng ảo
-
-| Mã TC | Kịch bản | Bước thực hiện | Kết quả mong đợi | Trạng thái (Pass/Fail) | Người Test | Ngày Test | Ghi chú (Bug ID) |
-| :--- | :--- | :--- | :--- | :---: | :--- | :--- | :--- |
-| UC04.1-HP-01 | Nhập đúng phần thiếu | Nhập lẻ D08 bằng đúng số còn thiếu | Tạo một thùng `VIR-*`, `is_virtual = 1`, đúng SKU/OEM/khách hàng và số lượng |  |  |  |  |
-| UC04.1-HP-02 | Ghi sổ nhập lẻ | Đối chiếu sau HP-01 | Có transaction `RECEIPT_PARTIAL`, hai ledger, event và audit tương ứng |  |  |  |  |
-| UC04.1-HP-03 | Cập nhật tiến độ | Làm mới chi tiết D08 | Tiến độ đạt 100%; thùng ảo không được tìm trong Packaging |  |  |  |  |
-| UC04.1-ERR-01 | Số lượng bằng 0 | Gửi `looseQty = 0` | Bị từ chối, không phát sinh dữ liệu |  |  |  |  |
-| UC04.1-ERR-02 | Số lượng âm | Gửi số âm | Bị từ chối, không phát sinh dữ liệu |  |  |  |  |
-| UC04.1-ERR-03 | Số thập phân | Gửi `1.5` | Bị từ chối theo quy tắc số nguyên |  |  |  |  |
-| UC04.1-ERR-04 | Không bằng phần thiếu | Gửi số nhỏ hơn/lớn hơn phần thiếu | Bị từ chối và giữ nguyên tiến độ |  |  |  |  |
-| UC04.1-ERR-05 | Thiếu mapping OEM | Xóa/khóa mapping của dữ liệu test rồi nhập lẻ | Bị từ chối, không tạo thùng ảo thiếu nguồn gốc |  |  |  |  |
-| UC04.1-ERR-06 | Trùng mã thùng ảo | Gửi hai request đồng thời cho cùng dòng | Chỉ một request thành công; không trùng `id_60` |  |  |  |  |
-| UC04.1-BAT-01 | Batch thành công | Nhập lẻ toàn bộ D09 | Tất cả dòng thành công và thuộc cùng một giao dịch nghiệp vụ |  |  |  |  |
-| UC04.1-BAT-02 | Batch lỗi giữa chừng | Làm dòng giữa của D09 không hợp lệ | Toàn bộ batch rollback; không dòng nào được ghi |  |  |  |  |
-
 ### 6.4. UC04.2 – Hủy kết quả quét
 
 | Mã TC | Kịch bản | Bước thực hiện | Kết quả mong đợi | Trạng thái (Pass/Fail) | Người Test | Ngày Test | Ghi chú (Bug ID) |
