@@ -1,12 +1,6 @@
--- =============================================
--- XỬ LÝ NGHIỆP VỤ XUẤT KHO (OUTBOUND & PARTIAL ISSUE)
--- Hệ quản trị: SQL Server (T-SQL)
--- =============================================
-
--- =============================================
--- Phân bổ tồn cho phiếu xuất
--- =============================================
-CREATE PROCEDURE usp_Outbound_Allocate
+-- Legacy allocation contract cannot represent the current UC16 scan-based
+-- allocation workflow. Fail closed instead of returning a false SUCCESS.
+CREATE OR ALTER PROCEDURE dbo.usp_Outbound_Allocate
     @issue_no NVARCHAR(50),
     @request_id NVARCHAR(100),
     @user_code NVARCHAR(100),
@@ -17,30 +11,13 @@ CREATE PROCEDURE usp_Outbound_Allocate
 AS
 BEGIN
     SET NOCOUNT ON;
-    BEGIN TRY
-        IF EXISTS (SELECT 1 FROM command_request_log WHERE request_id = @request_id) RETURN;
-        INSERT INTO command_request_log (request_id, command_type, status) VALUES (@request_id, 'Outbound_Allocate', 'PROCESSING');
-        
-        BEGIN TRANSACTION;
-        -- TODO: Only select tbl_thung60_kho where stock_type = 'UNRESTRICTED' and status = 'AVAILABLE'
-        -- TODO: Update status to 'ALLOCATED'
-        
-        COMMIT TRANSACTION;
-        UPDATE command_request_log SET status = 'SUCCESS' WHERE request_id = @request_id;
-        SELECT 'SUCCESS' AS status, 'Phân bổ thành công' AS message, NULL AS error_code, @issue_no AS document_no, NULL AS object_code, @request_id AS request_id, NEWID() AS trace_id;
-    END TRY
-    BEGIN CATCH
-        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
-        UPDATE command_request_log SET status = 'FAILED' WHERE request_id = @request_id;
-        SELECT 'ERROR' AS status, ERROR_MESSAGE() AS message, 'SYSTEM_ERROR' AS error_code;
-    END CATCH
+    THROW 51000, N'usp_Outbound_Allocate đã ngừng sử dụng. UC16 phân bổ tồn bằng API picking/scan theo FIFO.', 1;
 END
 GO
 
--- =============================================
--- Xuất lẻ sinh thùng ảo (Nghiệp vụ cốt lõi)
--- =============================================
-CREATE PROCEDURE usp_Outbound_PartialIssue
+-- Compatibility wrapper for partial issue. The canonical implementation owns
+-- the virtual-carton creation, source locking, event trail and idempotency.
+CREATE OR ALTER PROCEDURE dbo.usp_Outbound_PartialIssue
     @issue_no NVARCHAR(50),
     @issue_line_no INT,
     @source_id_60 NVARCHAR(50),
@@ -54,27 +31,25 @@ CREATE PROCEDURE usp_Outbound_PartialIssue
 AS
 BEGIN
     SET NOCOUNT ON;
-    BEGIN TRY
-        IF EXISTS (SELECT 1 FROM command_request_log WHERE request_id = @request_id) RETURN;
-        INSERT INTO command_request_log (request_id, command_type, status) VALUES (@request_id, 'Outbound_PartialIssue', 'PROCESSING');
-        
-        BEGIN TRANSACTION;
-        
-        -- 1. Validate qty
-        -- 2. Create virtual box in tbl_thung60_kho (is_virtual=1)
-        -- 3. Link parent_id_60 to @source_id_60
-        -- 4. Update source box qty and set stock_type = 'BLOCKED', block_reason_code = 'PARTIAL_REMAINING'
-        -- 5. Insert into thung60_split_history
-        -- 6. Insert events
-        
-        COMMIT TRANSACTION;
-        UPDATE command_request_log SET status = 'SUCCESS' WHERE request_id = @request_id;
-        SELECT 'SUCCESS' AS status, 'Tạo thùng ảo xuất lẻ thành công' AS message, NULL AS error_code, @issue_no AS document_no, NULL AS object_code, @request_id AS request_id, NEWID() AS trace_id;
-    END TRY
-    BEGIN CATCH
-        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
-        UPDATE command_request_log SET status = 'FAILED' WHERE request_id = @request_id;
-        SELECT 'ERROR' AS status, ERROR_MESSAGE() AS message, 'SYSTEM_ERROR' AS error_code;
-    END CATCH
+    SET XACT_ABORT ON;
+
+    DECLARE @ProductCode NVARCHAR(50);
+    SELECT @ProductCode = product_code
+    FROM dbo.delivery_note_detail
+    WHERE delivery_note_no = @issue_no
+      AND line_no = @issue_line_no;
+
+    IF @ProductCode IS NULL
+    BEGIN
+        THROW 51000, N'Không tìm thấy dòng phiếu xuất để thực hiện xuất lẻ.', 1;
+    END
+
+    EXEC dbo.usp_WMS_UC16_SplitBox
+        @DeliveryNoteNo = @issue_no,
+        @ProductCode = @ProductCode,
+        @SourceId60 = @source_id_60,
+        @SplitQty = @partial_qty,
+        @ScannedBy = @user_code,
+        @RequestId = @request_id;
 END
 GO

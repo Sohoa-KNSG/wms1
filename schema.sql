@@ -31,6 +31,7 @@ GO
 
 CREATE TABLE tbl_temporary_dispatch_header (
     dispatch_no NVARCHAR(50) NOT NULL PRIMARY KEY,
+    request_id NVARCHAR(100) NOT NULL UNIQUE,
     reason_code NVARCHAR(50) NOT NULL,
     borrower_name NVARCHAR(100) NOT NULL,
     dispatch_date DATE NOT NULL,
@@ -39,9 +40,20 @@ CREATE TABLE tbl_temporary_dispatch_header (
     total_qty DECIMAL(18,4) NOT NULL DEFAULT 0,
     returned_qty DECIMAL(18,4) NOT NULL DEFAULT 0,
     converted_qty DECIMAL(18,4) NOT NULL DEFAULT 0,
-    status NVARCHAR(30) NOT NULL DEFAULT 'TEMPORARY_ISSUE',
+    status NVARCHAR(30) NOT NULL DEFAULT 'PENDING_OUT',
     created_by NVARCHAR(50) NOT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+GO
+
+CREATE TABLE tbl_temporary_dispatch_request_line (
+    dispatch_no NVARCHAR(50) NOT NULL,
+    line_no INT NOT NULL,
+    product_code NVARCHAR(50) NOT NULL,
+    requested_qty DECIMAL(18,4) NOT NULL,
+    scanned_qty DECIMAL(18,4) NOT NULL DEFAULT 0,
+    PRIMARY KEY (dispatch_no, line_no),
+    FOREIGN KEY (dispatch_no) REFERENCES tbl_temporary_dispatch_header(dispatch_no)
 );
 GO
 
@@ -56,7 +68,8 @@ CREATE TABLE tbl_temporary_dispatch_detail (
     returned_qty DECIMAL(18,4) NULL DEFAULT 0,
     return_condition NVARCHAR(50) NULL, -- 'EXACT', 'REPACKED_NEW_BOX', 'REWORKED_NEW_SKU', 'DAMAGED'
     returned_at DATETIME,
-    PRIMARY KEY (dispatch_no, id_60)
+    PRIMARY KEY (dispatch_no, id_60),
+    FOREIGN KEY (dispatch_no) REFERENCES tbl_temporary_dispatch_header(dispatch_no)
 );
 GO
 
@@ -168,6 +181,11 @@ CREATE TABLE tbl_thung60_kho (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id_60)
 );
+GO
+
+ALTER TABLE tbl_temporary_dispatch_detail
+    ADD CONSTRAINT fk_temp_dispatch_detail_carton
+    FOREIGN KEY (id_60) REFERENCES tbl_thung60_kho(id_60);
 GO
 
 CREATE TABLE thung60_split_history (
@@ -376,6 +394,7 @@ GO
 
 CREATE TABLE stock_type_change_request_header (
     request_no NVARCHAR(50) NOT NULL,
+    request_id NVARCHAR(100) NOT NULL UNIQUE,
     change_type NVARCHAR(30) NOT NULL,
     reason_code NVARCHAR(50) NOT NULL,
     status NVARCHAR(30) NOT NULL,
@@ -400,6 +419,47 @@ CREATE TABLE stock_type_change_request_detail (
     old_block_reason_code NVARCHAR(50),
     new_block_reason_code NVARCHAR(50),
     PRIMARY KEY (request_no, line_no)
+);
+GO
+
+CREATE TABLE inventory_period_closing (
+    closing_id NVARCHAR(50) NOT NULL PRIMARY KEY,
+    request_id NVARCHAR(100) NOT NULL UNIQUE,
+    closing_year INT NOT NULL,
+    closing_month INT NOT NULL,
+    status NVARCHAR(30) NOT NULL,
+    closed_by NVARCHAR(50) NOT NULL,
+    closed_at DATETIME NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_inventory_period UNIQUE (closing_year, closing_month),
+    CONSTRAINT ck_inventory_period_month CHECK (closing_month BETWEEN 1 AND 12)
+);
+GO
+
+CREATE TABLE monthly_carton_balances (
+    closing_id NVARCHAR(50) NOT NULL,
+    closing_year INT NOT NULL,
+    closing_month INT NOT NULL,
+    id_60 NVARCHAR(50) NOT NULL,
+    product_code NVARCHAR(50) NOT NULL,
+    closing_qty DECIMAL(18,4) NOT NULL,
+    current_location_code NVARCHAR(50) NULL,
+    stock_type NVARCHAR(30) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (closing_id, id_60),
+    FOREIGN KEY (closing_id) REFERENCES inventory_period_closing(closing_id)
+);
+GO
+
+CREATE TABLE monthly_inventory_balances (
+    closing_id NVARCHAR(50) NOT NULL,
+    closing_year INT NOT NULL,
+    closing_month INT NOT NULL,
+    product_code NVARCHAR(50) NOT NULL,
+    total_closing_qty DECIMAL(18,4) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (closing_id, product_code),
+    FOREIGN KEY (closing_id) REFERENCES inventory_period_closing(closing_id)
 );
 GO
 

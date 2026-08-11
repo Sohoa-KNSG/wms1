@@ -4,10 +4,22 @@ BEGIN
     SET NOCOUNT ON;
     
     DECLARE @TransactionID UNIQUEIDENTIFIER = NEWID();
-    DECLARE @LogDate DATETIME = GETDATE();
+    DECLARE @LogDate DATETIME = GETUTCDATE();
 
     BEGIN TRY
         BEGIN TRANSACTION;
+
+        IF EXISTS (
+            SELECT 1
+            FROM [WMS1].[dbo].[stock_transaction_book] WITH (UPDLOCK, HOLDLOCK)
+            WHERE transaction_type = 'INITIAL_BALANCE'
+              AND document_no = 'MIG_001'
+        )
+        BEGIN
+            COMMIT TRANSACTION;
+            SELECT 'SUCCESS' AS status, 'MIG_001' AS document_no, 1 AS already_processed;
+            RETURN;
+        END
 
         -- 1. Lọc và chuẩn bị dữ liệu (Lấy các dữ liệu hợp lệ)
         SELECT *

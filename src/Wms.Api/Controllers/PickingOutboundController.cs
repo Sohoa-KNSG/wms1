@@ -339,28 +339,54 @@ public class PickingOutboundController : ControllerBase
         string requestId = GetRequestId();
 
         using var connection = await _connectionFactory.CreateConnectionAsync();
-        var notes = await connection.QueryAsync<string>(@"
-            SELECT delivery_note_no 
-            FROM delivery_note_header WITH (NOLOCK)
-            WHERE license_plate = @licensePlate AND status IN ('PENDING_PICK', 'PICKING')", new { licensePlate });
-
-        int completedCount = 0;
-        foreach (var noteNo in notes)
+        using var transaction = connection.BeginTransaction(IsolationLevel.Serializable);
+        try
         {
-            try
+            var notes = (await connection.QueryAsync<string>(@"
+                SELECT delivery_note_no
+                FROM delivery_note_header WITH (UPDLOCK, HOLDLOCK)
+                WHERE license_plate = @licensePlate
+                  AND status IN ('PENDING_PICK', 'PICKING')
+                ORDER BY delivery_note_no", new { licensePlate }, transaction)).ToList();
+
+            if (notes.Count == 0)
+            {
+                transaction.Rollback();
+                return Conflict(ApiResponse<object>.Error(
+                    WmsErrorCodes.InvalidStateTransition,
+                    $"Xe {licensePlate} không có phiếu nào đủ điều kiện hoàn tất soạn hàng.",
+                    requestId: requestId));
+            }
+
+            foreach (var noteNo in notes)
             {
                 await connection.ExecuteAsync("usp_WMS_UC16_CompletePicking", new
                 {
                     DeliveryNoteNo = noteNo,
                     CompletedBy = user,
                     RequestId = $"{requestId}-{noteNo}"
-                }, commandType: CommandType.StoredProcedure);
-                completedCount++;
+                }, transaction, commandType: CommandType.StoredProcedure);
             }
-            catch { }
-        }
 
-        return Ok(ApiResponse<object>.Success(new { completed_count = completedCount }, $"Đã hoàn tất soạn hàng cho {completedCount} phiếu của xe {licensePlate}.", requestId: requestId));
+            transaction.Commit();
+            return Ok(ApiResponse<object>.Success(
+                new { completed_count = notes.Count },
+                $"Đã hoàn tất soạn hàng cho {notes.Count} phiếu của xe {licensePlate}.",
+                requestId: requestId));
+        }
+        catch (Microsoft.Data.SqlClient.SqlException ex)
+        {
+            TryRollback(transaction);
+            return Conflict(ApiResponse<object>.Error(
+                WmsErrorCodes.InvalidStateTransition,
+                ex.Message,
+                requestId: requestId));
+        }
+        catch
+        {
+            TryRollback(transaction);
+            throw;
+        }
     }
 
     [HttpPost("trucks/{licensePlate}/stage")]
@@ -371,15 +397,26 @@ public class PickingOutboundController : ControllerBase
         string requestId = GetRequestId();
 
         using var connection = await _connectionFactory.CreateConnectionAsync();
-        var notes = await connection.QueryAsync<string>(@"
-            SELECT delivery_note_no 
-            FROM delivery_note_header WITH (NOLOCK)
-            WHERE license_plate = @licensePlate AND status = 'PICKED'", new { licensePlate });
-
-        int stagedCount = 0;
-        foreach (var noteNo in notes)
+        using var transaction = connection.BeginTransaction(IsolationLevel.Serializable);
+        try
         {
-            try
+            var notes = (await connection.QueryAsync<string>(@"
+                SELECT delivery_note_no
+                FROM delivery_note_header WITH (UPDLOCK, HOLDLOCK)
+                WHERE license_plate = @licensePlate
+                  AND status = 'PICKED'
+                ORDER BY delivery_note_no", new { licensePlate }, transaction)).ToList();
+
+            if (notes.Count == 0)
+            {
+                transaction.Rollback();
+                return Conflict(ApiResponse<object>.Error(
+                    WmsErrorCodes.InvalidStateTransition,
+                    $"Xe {licensePlate} không có phiếu nào đủ điều kiện duyệt tập kết.",
+                    requestId: requestId));
+            }
+
+            foreach (var noteNo in notes)
             {
                 await connection.ExecuteAsync("usp_WMS_UC16_ApproveStage", new
                 {
@@ -387,13 +424,40 @@ public class PickingOutboundController : ControllerBase
                     Note = $"Duyệt tập kết theo chuyến xe {licensePlate}",
                     ApprovedBy = user,
                     RequestId = $"{requestId}-{noteNo}"
-                }, commandType: CommandType.StoredProcedure);
-                stagedCount++;
+                }, transaction, commandType: CommandType.StoredProcedure);
             }
-            catch { }
-        }
 
-        return Ok(ApiResponse<object>.Success(new { staged_count = stagedCount }, $"Đã duyệt tập kết cho {stagedCount} phiếu của xe {licensePlate}.", requestId: requestId));
+            transaction.Commit();
+            return Ok(ApiResponse<object>.Success(
+                new { staged_count = notes.Count },
+                $"Đã duyệt tập kết cho {notes.Count} phiếu của xe {licensePlate}.",
+                requestId: requestId));
+        }
+        catch (Microsoft.Data.SqlClient.SqlException ex)
+        {
+            TryRollback(transaction);
+            return Conflict(ApiResponse<object>.Error(
+                WmsErrorCodes.InvalidStateTransition,
+                ex.Message,
+                requestId: requestId));
+        }
+        catch
+        {
+            TryRollback(transaction);
+            throw;
+        }
+    }
+
+    private static void TryRollback(IDbTransaction transaction)
+    {
+        try
+        {
+            transaction.Rollback();
+        }
+        catch (InvalidOperationException)
+        {
+            // A stored procedure may already have rolled back the ambient SQL transaction.
+        }
     }
 }
 

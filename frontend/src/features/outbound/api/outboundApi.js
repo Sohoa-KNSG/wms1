@@ -4,7 +4,6 @@ export const outboundApi = {
   getRequirements: (params) => httpClient.get('/export/requirements', { params }),
   pasteData: (payload) => httpClient.post('/export/paste-data', payload),
   deleteRequirement: (payload) => httpClient.delete('/export/requirements', { data: payload }),
-  clearTestData: () => httpClient.post('/export/clear-test-data'),
   createDeliveryNotes: (payload) => httpClient.post('/export/delivery-notes', payload),
   getDeliveryNotes: (params) => httpClient.get('/picking/notes', { params }),
   getDeliveryNoteDetails: (noteNo) => httpClient.get(`/picking/notes/${noteNo}`),
@@ -16,6 +15,7 @@ export const outboundApi = {
   getAvailableBoxes: (pcode) => httpClient.get(`/picking/available-boxes/${encodeURIComponent(pcode)}`),
   splitBox: (payload) => httpClient.post('/picking/split-box', payload),
   scanPickingUnit: (payload) => httpClient.post('/picking/scan', payload),
-  batchTruckAction: (endpoint, payload) => httpClient.post(`/picking/${endpoint}`, payload), // could be truck-stage or truck-complete
+  batchTruckAction: (endpoint, licensePlate) =>
+    httpClient.post(`/picking/trucks/${encodeURIComponent(licensePlate)}/${endpoint}`),
   completePick: (payload) => httpClient.post('/picking/complete', payload)
 };

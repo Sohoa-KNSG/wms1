@@ -2,6 +2,7 @@
 src/Wms.Api/appsettings.Development.json
 src/Wms.Api/appsettings.*.local.json
 **/secrets.json
+cau_hinh_sql.txt
 
 # .NET
 [Bb]in/

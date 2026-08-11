@@ -23,6 +23,7 @@ public class ExportRequirementsController : ControllerBase
     }
 
     [HttpPost("paste-data")]
+    [Authorize(Policy = PolicyNames.ExportManage)]
     public async Task<IActionResult> PasteData([FromBody] IEnumerable<ExportRequirementItemDto> data)
     {
         if (data == null || !data.Any())
@@ -105,6 +106,7 @@ public class ExportRequirementsController : ControllerBase
     }
 
     [HttpGet("requirements")]
+    [Authorize(Policy = PolicyNames.ExportRead)]
     public async Task<IActionResult> GetRequirements(
         [FromQuery] string? status = null, 
         [FromQuery] string? fromDate = null, 
@@ -150,6 +152,7 @@ public class ExportRequirementsController : ControllerBase
     }
 
     [HttpDelete("requirements")]
+    [Authorize(Policy = PolicyNames.ExportManage)]
     public async Task<IActionResult> DeleteRequirement([FromBody] DeleteRequirementRequest request)
     {
         string requestNo = !string.IsNullOrWhiteSpace(request.RequestNo) ? request.RequestNo : (!string.IsNullOrWhiteSpace(request.Request_No) ? request.Request_No : "");
@@ -190,6 +193,7 @@ public class ExportRequirementsController : ControllerBase
     }
 
     [HttpPut("requirements")]
+    [Authorize(Policy = PolicyNames.ExportManage)]
     public async Task<IActionResult> UpdateRequirement([FromBody] UpdateRequirementRequest request)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync();
@@ -234,6 +238,7 @@ public class ExportRequirementsController : ControllerBase
     }
 
     [HttpPost("delivery-notes")]
+    [Authorize(Policy = PolicyNames.ExportManage)]
     public async Task<IActionResult> CreateDeliveryNotes([FromBody] CreateDeliveryNotesRequest request)
     {
         if (request == null || request.Details == null || !request.Details.Any())
@@ -361,31 +366,6 @@ public class ExportRequirementsController : ControllerBase
         }
     }
 
-    [AllowAnonymous]
-    [HttpPost("clear-test-data")]
-    [HttpDelete("clear-test-data")]
-    public async Task<IActionResult> ClearTestData()
-    {
-        using var connection = await _connectionFactory.CreateConnectionAsync();
-        using var transaction = connection.BeginTransaction();
-        try
-        {
-            await connection.ExecuteAsync(@"
-                IF OBJECT_ID('WMS_UC16_ScanLog', 'U') IS NOT NULL DELETE FROM WMS_UC16_ScanLog;
-                IF OBJECT_ID('delivery_note_detail', 'U') IS NOT NULL DELETE FROM delivery_note_detail;
-                IF OBJECT_ID('delivery_note_header', 'U') IS NOT NULL DELETE FROM delivery_note_header;
-                IF OBJECT_ID('export_request_detail', 'U') IS NOT NULL UPDATE export_request_detail SET allocated_qty = 0;
-                IF OBJECT_ID('export_request_header', 'U') IS NOT NULL UPDATE export_request_header SET status = 'NEW';", transaction: transaction);
-
-            transaction.Commit();
-            return Ok(CommandResponse.Success("Đã xóa sạch toàn bộ dữ liệu phân bổ và phiếu chờ soạn thành công."));
-        }
-        catch
-        {
-            transaction.Rollback();
-            throw;
-        }
-    }
 }
 
 public class ExportRequirementItemDto

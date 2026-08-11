@@ -1,0 +1,4 @@
+server: <SQL_SERVER_HOST>
+database: <SQL_DATABASE_NAME>
+user: <SQL_USER_NAME>
+password: <SQL_PASSWORD>

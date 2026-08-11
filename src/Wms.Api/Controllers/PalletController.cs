@@ -9,7 +9,6 @@ namespace Wms.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/pallet")]
-[Authorize]
 public class PalletController : ControllerBase
 {
     private readonly IStoredProcedureExecutor _spExecutor;
@@ -27,6 +26,7 @@ public class PalletController : ControllerBase
     }
 
     [HttpPost("init")]
+    [Authorize(Policy = PolicyNames.PalletManage)]
     public async Task<IActionResult> InitPallet([FromBody] InitPalletRequest request)
     {
         var parameters = new
@@ -36,10 +36,11 @@ public class PalletController : ControllerBase
         };
 
         var data = await _spExecutor.QueryFirstOrDefaultAsync<dynamic>("usp_WMS_UC06_InitPallet", parameters);
-        return Ok(ApiResponse<object>.Success(data as IDictionary<string, object>));
+        return StoredProcedureResult(data);
     }
 
     [HttpPost("{id}/add-unit")]
+    [Authorize(Policy = PolicyNames.PalletManage)]
     public async Task<IActionResult> AddUnitToPallet([FromRoute] string id, [FromBody] AddUnitPalletRequest request)
     {
         var parameters = new
@@ -51,10 +52,11 @@ public class PalletController : ControllerBase
         };
 
         var data = await _spExecutor.QueryFirstOrDefaultAsync<dynamic>("usp_WMS_UC06_AddUnitToPallet", parameters);
-        return Ok(ApiResponse<object>.Success(data as IDictionary<string, object>));
+        return StoredProcedureResult(data);
     }
 
     [HttpPost("{id}/complete")]
+    [Authorize(Policy = PolicyNames.PalletManage)]
     public async Task<IActionResult> CompletePallet([FromRoute] string id)
     {
         var parameters = new
@@ -64,10 +66,11 @@ public class PalletController : ControllerBase
         };
 
         var data = await _spExecutor.QueryFirstOrDefaultAsync<dynamic>("usp_WMS_UC06_CompletePallet", parameters);
-        return Ok(ApiResponse<object>.Success(data as IDictionary<string, object>));
+        return StoredProcedureResult(data);
     }
 
     [HttpPost("remove-unit")]
+    [Authorize(Policy = PolicyNames.PalletManage)]
     public async Task<IActionResult> RemoveUnitFromPallet([FromBody] RemoveUnitPalletRequest request)
     {
         var parameters = new
@@ -79,10 +82,11 @@ public class PalletController : ControllerBase
         };
 
         var data = await _spExecutor.QueryFirstOrDefaultAsync<dynamic>("usp_WMS_UC06_1_RemoveUnit", parameters);
-        return Ok(ApiResponse<object>.Success(data as IDictionary<string, object>));
+        return StoredProcedureResult(data);
     }
 
     [HttpPost("transfer-unit")]
+    [Authorize(Policy = PolicyNames.PalletManage)]
     public async Task<IActionResult> TransferUnitPallet([FromBody] TransferUnitPalletRequest request)
     {
         var parameters = new
@@ -95,10 +99,11 @@ public class PalletController : ControllerBase
         };
 
         var data = await _spExecutor.QueryFirstOrDefaultAsync<dynamic>("usp_WMS_UC06_1_TransferUnit", parameters);
-        return Ok(ApiResponse<object>.Success(data as IDictionary<string, object>));
+        return StoredProcedureResult(data);
     }
 
     [HttpGet("{id}/info")]
+    [Authorize(Policy = PolicyNames.PalletRead)]
     public async Task<IActionResult> GetPalletInfo([FromRoute] string id)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync();
@@ -121,6 +126,7 @@ public class PalletController : ControllerBase
     }
 
     [HttpPost("{id}/putaway")]
+    [Authorize(Policy = PolicyNames.PalletManage)]
     public async Task<IActionResult> PutawayPallet([FromRoute] string id, [FromBody] PutawayPalletRequest request)
     {
         var parameters = new
@@ -131,10 +137,11 @@ public class PalletController : ControllerBase
         };
 
         var data = await _spExecutor.QueryFirstOrDefaultAsync<dynamic>("usp_WMS_UC11_PutawayPallet", parameters);
-        return Ok(ApiResponse<object>.Success(data as IDictionary<string, object>));
+        return StoredProcedureResult(data);
     }
 
     [HttpPost("{id}/letdown")]
+    [Authorize(Policy = PolicyNames.PalletManage)]
     public async Task<IActionResult> LetdownPallet([FromRoute] string id)
     {
         var parameters = new
@@ -144,7 +151,20 @@ public class PalletController : ControllerBase
         };
 
         var data = await _spExecutor.QueryFirstOrDefaultAsync<dynamic>("usp_WMS_UC11_LetdownPallet", parameters);
-        return Ok(ApiResponse<object>.Success(data as IDictionary<string, object>));
+        return StoredProcedureResult(data);
+    }
+
+    private IActionResult StoredProcedureResult(object? data)
+    {
+        if (data is not IDictionary<string, object> payload)
+        {
+            return StatusCode(StatusCodes.Status502BadGateway,
+                ApiResponse<object>.Error(
+                    WmsErrorCodes.InternalServerError,
+                    "Stored procedure không trả về kết quả nghiệp vụ hợp lệ."));
+        }
+
+        return Ok(ApiResponse<object>.Success(payload));
     }
 }
 

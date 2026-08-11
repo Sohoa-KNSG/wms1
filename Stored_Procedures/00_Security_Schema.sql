@@ -66,6 +66,7 @@ GO
 -- Stored Procedure: usp_WMS_AUTH_ChangePassword (UC00.1)
 CREATE OR ALTER PROCEDURE dbo.usp_WMS_AUTH_ChangePassword
     @UserID NVARCHAR(50),
+    @ExpectedCurrentPasswordHash NVARCHAR(500),
     @NewPasswordHash NVARCHAR(500),
     @ClientIP NVARCHAR(50) = NULL,
     @UserAgent NVARCHAR(500) = NULL
@@ -99,9 +100,19 @@ BEGIN
     UPDATE sec_user
     SET password_hash = @NewPasswordHash,
         must_change_password = 0,
-        last_password_changed_at = GETDATE(),
-        updated_at = GETDATE()
-    WHERE user_id = @UserID;
+        last_password_changed_at = GETUTCDATE(),
+        updated_at = GETUTCDATE()
+    WHERE user_id = @UserID
+      AND password_hash = @ExpectedCurrentPasswordHash;
+
+    IF @@ROWCOUNT = 0
+    BEGIN
+        INSERT INTO sec_user_password_log(user_id, username, action_type, result, message, client_ip, user_agent)
+        VALUES(@UserID, @UserName, N'CHANGE_PASSWORD', N'FAILED', N'Mật khẩu đã thay đổi bởi một phiên khác', @ClientIP, @UserAgent);
+        COMMIT TRANSACTION;
+        RAISERROR(N'Mật khẩu đã thay đổi bởi một phiên khác. Vui lòng đăng nhập lại.', 16, 1);
+        RETURN;
+    END
 
     INSERT INTO sec_user_password_log(user_id, username, action_type, result, message, client_ip, user_agent)
     VALUES(@UserID, @UserName, N'CHANGE_PASSWORD', N'SUCCESS', N'Đổi mật khẩu thành công', @ClientIP, @UserAgent);
@@ -140,8 +151,8 @@ BEGIN
         must_change_password = 1,
         failed_attempts = 0,
         lockout_until = NULL,
-        last_password_changed_at = GETDATE(),
-        updated_at = GETDATE()
+        last_password_changed_at = GETUTCDATE(),
+        updated_at = GETUTCDATE()
     WHERE user_id = @TargetUserID;
 
     INSERT INTO sec_user_password_log(user_id, username, action_type, result, message, client_ip, user_agent)
@@ -269,6 +280,12 @@ BEGIN
         FROM STRING_SPLIT(@Roles, ',');
     END
 
+    -- Revoke existing JWTs so the next request cannot keep stale role claims.
+    UPDATE sec_user
+    SET last_password_changed_at = GETUTCDATE(),
+        updated_at = GETUTCDATE()
+    WHERE user_id = @TargetUserID;
+
     COMMIT TRANSACTION;
 END
 GO
@@ -329,6 +346,11 @@ BEGIN TRY
     ('Ledger.Read',         N'Xem sổ cái kép',               'Ledger',         'Read'),
     ('Trace.Read',          N'Tra cứu vết hàng hóa',         'Trace',          'Read'),
     ('Reconciliation.Read', N'Xem đối soát tồn kho',         'Reconciliation', 'Read'),
+    ('TemporaryDispatch.Read',   N'Xem phiếu xuất tạm',       'TemporaryDispatch', 'Read'),
+    ('TemporaryDispatch.Manage', N'Quản lý phiếu xuất tạm',   'TemporaryDispatch', 'Manage'),
+    ('StockType.Manage',         N'Quản lý loại tồn kho',      'StockType',         'Manage'),
+    ('InventoryClosing.Manage',  N'Kết chuyển và chốt tồn kho','InventoryClosing',  'Manage'),
+    ('SystemMemory.Manage',      N'Quản lý lịch sử hệ thống',  'SystemMemory',      'Manage'),
     ('Admin.Users.Manage',  N'Quản lý tài khoản người dùng', 'Admin',          'Users.Manage');
 
     -- IT_ADMIN: Toàn quyền
@@ -348,7 +370,9 @@ BEGIN TRY
     ('THU_KHO', 'Picking.Ship'),    ('THU_KHO', 'Export.Read'),
     ('THU_KHO', 'Reports.Read'),    ('THU_KHO', 'Ledger.Read'),
     ('THU_KHO', 'Trace.Read'),      ('THU_KHO', 'Reconciliation.Read'),
-    ('THU_KHO', 'MasterData.Read');
+    ('THU_KHO', 'MasterData.Read'), ('THU_KHO', 'TemporaryDispatch.Read'),
+    ('THU_KHO', 'TemporaryDispatch.Manage'),
+    ('THU_KHO', 'StockType.Manage'), ('THU_KHO', 'InventoryClosing.Manage');
 
     -- NHAN_VIEN: Quét + xem cơ bản
     INSERT INTO sec_role_permission (role_id, permission_id) VALUES
@@ -356,7 +380,7 @@ BEGIN TRY
     ('NHAN_VIEN', 'Pack360.Read'),  ('NHAN_VIEN', 'Pack360.Scan'),
     ('NHAN_VIEN', 'Pallet.Read'),   ('NHAN_VIEN', 'Picking.Read'),
     ('NHAN_VIEN', 'Picking.Scan'),  ('NHAN_VIEN', 'Oem.Read'),
-    ('NHAN_VIEN', 'Trace.Read');
+    ('NHAN_VIEN', 'Trace.Read'),    ('NHAN_VIEN', 'TemporaryDispatch.Read');
 
     -- Users (Password = 123456)
     INSERT INTO sec_user (user_id, username, password_hash, full_name, must_change_password) VALUES

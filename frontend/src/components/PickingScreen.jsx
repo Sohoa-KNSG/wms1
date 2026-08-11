@@ -153,9 +153,14 @@ export default function PickingScreen({ user, onBack }) {
         if (!window.confirm(confirmMsg)) return;
         setIsProcessing(true);
         try {
-            const res = endpoint === 'complete' 
-                ? await pickingApi.completeTruck(truckPlate) 
-                : await pickingApi.stageTruck(truckPlate);
+            let res;
+            if (endpoint === 'complete') {
+                res = await pickingApi.completeTruck(truckPlate);
+            } else if (endpoint === 'stage') {
+                res = await pickingApi.stageTruck(truckPlate);
+            } else {
+                throw new Error('Thao tác chuyến xe không hợp lệ');
+            }
             alert(res?.message || 'Thao tác thành công!');
             setSelectedTruckSummary(null);
             fetchNotes();
@@ -469,7 +474,7 @@ export default function PickingScreen({ user, onBack }) {
                                                 <button 
                                                     className="btn btn-primary"
                                                     disabled={isProcessing}
-                                                    onClick={() => handleBatchTruckAction(truckPlate, 'truck-complete', `Xác nhận hoàn tất soạn hàng cho toàn bộ Chuyến Xe ${truckPlate}?`)}
+                                                    onClick={() => handleBatchTruckAction(truckPlate, 'complete', `Xác nhận hoàn tất soạn hàng cho toàn bộ Chuyến Xe ${truckPlate}?`)}
                                                     style={{ fontSize: '0.85rem', padding: '0.4rem 0.8rem' }}
                                                 >
                                                     <CheckCircle size={16} style={{ marginRight: 4 }} /> Hoàn Tất Soạn Cả Xe
@@ -480,7 +485,7 @@ export default function PickingScreen({ user, onBack }) {
                                                 <button 
                                                     className="btn btn-primary"
                                                     disabled={isProcessing}
-                                                    onClick={() => handleBatchTruckAction(truckPlate, 'truck-stage', `Xác nhận đã tập kết đủ hàng cho toàn bộ Chuyến Xe ${truckPlate}?`)}
+                                                    onClick={() => handleBatchTruckAction(truckPlate, 'stage', `Xác nhận đã tập kết đủ hàng cho toàn bộ Chuyến Xe ${truckPlate}?`)}
                                                     style={{ fontSize: '0.85rem', padding: '0.4rem 0.8rem', backgroundColor: '#f59e0b', borderColor: '#f59e0b' }}
                                                 >
                                                     <Box size={16} style={{ marginRight: 4 }} /> Tập Kết Cả Xe
@@ -634,7 +639,7 @@ export default function PickingScreen({ user, onBack }) {
                                             <button 
                                                 className="btn btn-primary"
                                                 disabled={isProcessing}
-                                                onClick={() => handleBatchTruckAction(selectedTruckSummary, 'truck-complete', `Xác nhận hoàn tất soạn hàng cho toàn bộ Chuyến Xe ${selectedTruckSummary}?`)}
+                                                onClick={() => handleBatchTruckAction(selectedTruckSummary, 'complete', `Xác nhận hoàn tất soạn hàng cho toàn bộ Chuyến Xe ${selectedTruckSummary}?`)}
                                                 style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}
                                             >
                                                 <CheckCircle size={18} /> Hoàn Tất Soạn Cả Xe {selectedTruckSummary}
@@ -645,7 +650,7 @@ export default function PickingScreen({ user, onBack }) {
                                             <button 
                                                 className="btn btn-primary"
                                                 disabled={isProcessing}
-                                                onClick={() => handleBatchTruckAction(selectedTruckSummary, 'truck-stage', `Xác nhận đã tập kết đủ hàng cho toàn bộ Chuyến Xe ${selectedTruckSummary}?`)}
+                                                onClick={() => handleBatchTruckAction(selectedTruckSummary, 'stage', `Xác nhận đã tập kết đủ hàng cho toàn bộ Chuyến Xe ${selectedTruckSummary}?`)}
                                                 style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', backgroundColor: '#f59e0b', borderColor: '#f59e0b' }}
                                             >
                                                 <Box size={18} /> Xác Nhận Tập Kết Cả Xe {selectedTruckSummary}

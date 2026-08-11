@@ -39,5 +39,12 @@ public static class PolicyNames
     public const string TraceRead = "Trace.Read";
     public const string ReconciliationRead = "Reconciliation.Read";
 
+    public const string TemporaryDispatchRead = "TemporaryDispatch.Read";
+    public const string TemporaryDispatchManage = "TemporaryDispatch.Manage";
+
+    public const string StockTypeManage = "StockType.Manage";
+    public const string InventoryClosingManage = "InventoryClosing.Manage";
+    public const string SystemMemoryManage = "SystemMemory.Manage";
+
     public const string AdminUsersManage = "Admin.Users.Manage";
 }
