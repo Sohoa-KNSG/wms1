@@ -3,21 +3,26 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Wms.Application.Common.Interfaces;
 using Wms.Application.Common.Models;
+using Wms.Domain.Constants;
 
 namespace Wms.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/system/memory")]
+[Authorize(Policy = PolicyNames.SystemMemoryManage)]
 public class SystemMemoryController : ControllerBase
 {
     private readonly ISqlConnectionFactory _connectionFactory;
+    private readonly ICurrentUserService _currentUserService;
 
-    public SystemMemoryController(ISqlConnectionFactory connectionFactory)
+    public SystemMemoryController(
+        ISqlConnectionFactory connectionFactory,
+        ICurrentUserService currentUserService)
     {
         _connectionFactory = connectionFactory;
+        _currentUserService = currentUserService;
     }
 
-    [AllowAnonymous]
     [HttpGet]
     public async Task<IActionResult> GetChangeHistory([FromQuery] string? featureCode, [FromQuery] string? moduleName)
     {
@@ -44,13 +49,14 @@ public class SystemMemoryController : ControllerBase
         return Ok(ApiResponse<object>.Success(result));
     }
 
-    [AllowAnonymous]
     [HttpPost]
     public async Task<IActionResult> RecordChangeHistory([FromBody] RecordSystemChangeDto request)
     {
         if (string.IsNullOrWhiteSpace(request.FeatureCode) || string.IsNullOrWhiteSpace(request.Summary))
         {
-            return BadRequest(ApiResponse<string>.Error("Mã tính năng (feature_code) và Tóm tắt (summary) không được để rỗng.", "BAD_REQUEST"));
+            return BadRequest(ApiResponse<string>.Error(
+                WmsErrorCodes.ValidationFailed,
+                "Mã tính năng (feature_code) và Tóm tắt (summary) không được để rỗng."));
         }
 
         using var connection = await _connectionFactory.CreateConnectionAsync();
@@ -69,7 +75,7 @@ public class SystemMemoryController : ControllerBase
             DetailedDescription = request.DetailedDescription,
             AffectedFiles = request.AffectedFiles,
             VerificationStatus = request.VerificationStatus ?? "VERIFIED_SUCCESS",
-            PerformedBy = request.PerformedBy ?? "ANTIGRAVITY_AGENT"
+            PerformedBy = _currentUserService.Username
         });
 
         return Ok(ApiResponse<string>.Success("Đã lưu vết bộ nhớ lịch sử thay đổi hệ thống thành công."));

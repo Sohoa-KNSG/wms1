@@ -1,3 +1,18 @@
+# Full UAT Remediation
+
+- **Thời gian**: 2026-08-11
+- **Tên Task/Milestone**: Rà soát và xử lý khoảng trống Critical/High của Full UAT
+- **Nội dung thay đổi**:
+  - Lập ma trận 260 UAT test case và 8 field test case; ghi nhận trung thực toàn bộ mục nghiệp vụ đang bị chặn bởi môi trường/thiết bị.
+  - Loại secret khỏi HEAD, đóng endpoint phá huỷ ẩn danh, fail-closed permission và bổ sung session revocation/forced password change ở backend.
+  - Hoàn thiện UC18 Temporary Dispatch, trả hàng, idempotency, dual ledger và sửa batch picking theo nguyên tắc all-or-nothing.
+  - Bổ sung migration cho UC18, auth session và inventory controls; sửa stored procedure placeholder thành triển khai thật hoặc fail-closed.
+  - Nâng dependency frontend và .NET; audit cuối không còn lỗ hổng npm/NuGet đã biết theo nguồn hiện tại.
+  - Quality gates: .NET 28/28 test, frontend 10/10 test, edge bridge 15/15 test, build/lint/runtime smoke đạt; giữ nguyên 75 tệp Prettier legacy chưa đạt.
+  - Chưa chạy migration/UAT ghi dữ liệu vì DB hiện có chưa được xác nhận là môi trường UAT cô lập; production vẫn NO-GO.
+
+---
+
 - **Thời gian**: 2026-08-11
 - **Tên Task/Milestone**: Tích hợp Báo Cáo Thông Minh (UC22) & Fix API UC06
 - **Nội dung thay đổi**:

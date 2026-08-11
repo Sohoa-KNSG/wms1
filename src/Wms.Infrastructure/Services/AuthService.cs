@@ -1,5 +1,6 @@
 using BCrypt.Net;
 using Dapper;
+using System.Data;
 using Wms.Application.Auth.Models;
 using Wms.Application.Auth.Services;
 using Wms.Application.Common.Interfaces;
@@ -64,19 +65,22 @@ public class AuthService : IAuthService
 
         if (!validPassword)
         {
-            int newFailCount = failedAttempts + 1;
+            int newFailCount = await connection.ExecuteScalarAsync<int>(@"
+                UPDATE sec_user
+                SET failed_attempts = ISNULL(failed_attempts, 0) + 1,
+                    lockout_until = CASE
+                        WHEN ISNULL(failed_attempts, 0) + 1 >= 5
+                            THEN DATEADD(MINUTE, 15, GETUTCDATE())
+                        ELSE lockout_until
+                    END
+                OUTPUT INSERTED.failed_attempts
+                WHERE user_id = @UserId",
+                new { UserId = userId });
+
             if (newFailCount >= 5)
             {
-                await connection.ExecuteAsync(
-                    "UPDATE sec_user SET failed_attempts = @FailCount, lockout_until = DATEADD(MINUTE, 15, GETDATE()) WHERE user_id = @UserId",
-                    new { FailCount = newFailCount, UserId = userId });
-
                 return Result<LoginResponseDto>.Failure(WmsErrorCodes.Forbidden, "Nhập sai quá 5 lần. Tài khoản của bạn đã bị khóa 15 phút.");
             }
-
-            await connection.ExecuteAsync(
-                "UPDATE sec_user SET failed_attempts = @FailCount WHERE user_id = @UserId",
-                new { FailCount = newFailCount, UserId = userId });
 
             return Result<LoginResponseDto>.Failure(WmsErrorCodes.Unauthorized, "Mật khẩu không chính xác.");
         }
@@ -106,20 +110,22 @@ public class AuthService : IAuthService
             permissionList = dbPerms ?? Array.Empty<string>();
         }
 
-        // Grant full permissions for ADMIN, STOREKEEPER, OPERATOR, or if permission list is empty
+        // Fail closed: chỉ quản trị viên mới được override toàn bộ policy.
         var allPolicies = typeof(PolicyNames).GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
             .Select(f => f.GetValue(null)?.ToString())
             .Where(p => !string.IsNullOrEmpty(p))
             .Cast<string>();
 
-        if (!permissionList.Any() || roleList.Any(r => r.Equals("ADMIN", StringComparison.OrdinalIgnoreCase) || r.Equals("IT_ADMIN", StringComparison.OrdinalIgnoreCase) || r.Equals("STOREKEEPER", StringComparison.OrdinalIgnoreCase) || r.Equals("OPERATOR", StringComparison.OrdinalIgnoreCase)))
-        {
-            permissionList = permissionList.Concat(allPolicies).Distinct();
-        }
+        permissionList = PermissionResolver.Resolve(roleList, permissionList, allPolicies);
 
         bool mustChangePassword = Convert.ToBoolean(user.must_change_password ?? false);
         // Truyền permissions vào token — RequireClaim("permission", policyName) sẽ kiểm tra
-        string token = _jwtTokenService.GenerateToken(userId, (string)user.username, roleList, permissionList);
+        string token = _jwtTokenService.GenerateToken(
+            userId,
+            (string)user.username,
+            roleList,
+            permissionList,
+            mustChangePassword);
 
         var userDto = new UserDto(
             userId,
@@ -138,28 +144,64 @@ public class AuthService : IAuthService
 
     public async Task<Result> ChangePasswordAsync(string currentUserId, ChangePasswordRequestDto request, string? clientIp = null, string? userAgent = null, CancellationToken cancellationToken = default)
     {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        var account = await connection.QueryFirstOrDefaultAsync<dynamic>(@"
+            SELECT user_id, username, password_hash
+            FROM sec_user
+            WHERE user_id = @UserId;", new { UserId = currentUserId });
+
+        if (account is null)
+        {
+            return Result.Failure(WmsErrorCodes.Unauthorized, "Tài khoản không tồn tại.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.CurrentPassword) ||
+            string.IsNullOrWhiteSpace(request.NewPassword) ||
+            string.IsNullOrWhiteSpace(request.ConfirmNewPassword) ||
+            request.CurrentPassword != request.CurrentPassword.Trim() ||
+            request.NewPassword != request.NewPassword.Trim() ||
+            request.ConfirmNewPassword != request.ConfirmNewPassword.Trim())
+        {
+            const string message = "Các trường mật khẩu là bắt buộc và không được có khoảng trắng ở hai đầu.";
+            await LogPasswordChangeFailureAsync(connection, currentUserId, message, clientIp, userAgent, cancellationToken);
+            return Result.Failure(WmsErrorCodes.ValidationFailed, message);
+        }
+
         if (request.NewPassword != request.ConfirmNewPassword)
         {
-            return Result.Failure(WmsErrorCodes.ValidationFailed, "Mật khẩu xác nhận không khớp.");
+            const string message = "Mật khẩu xác nhận không khớp.";
+            await LogPasswordChangeFailureAsync(connection, currentUserId, message, clientIp, userAgent, cancellationToken);
+            return Result.Failure(WmsErrorCodes.ValidationFailed, message);
         }
 
         if (request.NewPassword == request.CurrentPassword)
         {
-            return Result.Failure(WmsErrorCodes.ValidationFailed, "Mật khẩu mới không được trùng mật khẩu hiện tại.");
+            const string message = "Mật khẩu mới không được trùng mật khẩu hiện tại.";
+            await LogPasswordChangeFailureAsync(connection, currentUserId, message, clientIp, userAgent, cancellationToken);
+            return Result.Failure(WmsErrorCodes.ValidationFailed, message);
         }
 
         if (request.NewPassword.Length < 8)
         {
-            return Result.Failure(WmsErrorCodes.ValidationFailed, "Mật khẩu mới phải có ít nhất 8 ký tự.");
+            const string message = "Mật khẩu mới phải có ít nhất 8 ký tự.";
+            await LogPasswordChangeFailureAsync(connection, currentUserId, message, clientIp, userAgent, cancellationToken);
+            return Result.Failure(WmsErrorCodes.ValidationFailed, message);
         }
 
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-        var passwordHash = await connection.QueryFirstOrDefaultAsync<string>(
-            "SELECT password_hash FROM sec_user WHERE user_id = @UserId", new { UserId = currentUserId });
-
-        if (string.IsNullOrEmpty(passwordHash) || !BCrypt.Net.BCrypt.Verify(request.CurrentPassword, passwordHash))
+        string username = (string)account.username;
+        if (request.NewPassword.Contains(username, StringComparison.OrdinalIgnoreCase))
         {
-            return Result.Failure(WmsErrorCodes.Unauthorized, "Mật khẩu hiện tại không chính xác.");
+            const string message = "Mật khẩu mới không được chứa tên đăng nhập.";
+            await LogPasswordChangeFailureAsync(connection, currentUserId, message, clientIp, userAgent, cancellationToken);
+            return Result.Failure(WmsErrorCodes.ValidationFailed, message);
+        }
+
+        string passwordHash = (string)account.password_hash;
+        if (!BCrypt.Net.BCrypt.Verify(request.CurrentPassword, passwordHash))
+        {
+            const string message = "Mật khẩu hiện tại không chính xác.";
+            await LogPasswordChangeFailureAsync(connection, currentUserId, message, clientIp, userAgent, cancellationToken);
+            return Result.Failure(WmsErrorCodes.Unauthorized, message);
         }
 
         string newPasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
@@ -167,6 +209,7 @@ public class AuthService : IAuthService
         await _spExecutor.ExecuteAsync("usp_WMS_AUTH_ChangePassword", new
         {
             UserID = currentUserId,
+            ExpectedCurrentPasswordHash = passwordHash,
             NewPasswordHash = newPasswordHash,
             ClientIP = clientIp,
             UserAgent = userAgent
@@ -174,6 +217,38 @@ public class AuthService : IAuthService
 
         return Result.Success();
     }
+
+    private static async Task LogPasswordChangeFailureAsync(
+        IDbConnection connection,
+        string userId,
+        string message,
+        string? clientIp,
+        string? userAgent,
+        CancellationToken cancellationToken)
+    {
+        const string sql = @"
+            INSERT INTO sec_user_password_log
+                (user_id, username, action_type, result, message, client_ip, user_agent)
+            SELECT user_id, username, N'CHANGE_PASSWORD', N'FAILED', @Message, @ClientIP, @UserAgent
+            FROM sec_user
+            WHERE user_id = @UserId;";
+
+        await connection.ExecuteAsync(new CommandDefinition(
+            sql,
+            new
+            {
+                UserId = userId,
+                Message = message,
+                ClientIP = Truncate(clientIp, 50),
+                UserAgent = Truncate(userAgent, 500)
+            },
+            cancellationToken: cancellationToken));
+    }
+
+    private static string? Truncate(string? value, int maxLength) =>
+        string.IsNullOrEmpty(value) || value.Length <= maxLength
+            ? value
+            : value[..maxLength];
 
     public async Task<Result<IEnumerable<UserDto>>> GetUsersAsync(CancellationToken cancellationToken = default)
     {
@@ -250,7 +325,11 @@ public class AuthService : IAuthService
 
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         await connection.ExecuteAsync(
-            "UPDATE sec_user SET is_active = @IsActive WHERE user_id = @TargetUserId",
+            @"UPDATE sec_user
+              SET is_active = @IsActive,
+                  last_password_changed_at = GETUTCDATE(),
+                  updated_at = GETUTCDATE()
+              WHERE user_id = @TargetUserId",
             new { IsActive = request.IsActive ? 1 : 0, TargetUserId = targetUserId });
 
         return Result.Success();

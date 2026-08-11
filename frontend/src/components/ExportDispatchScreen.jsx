@@ -436,18 +436,6 @@ export default function ExportDispatchScreen({ onBack }) {
     }
   };
 
-  const handleClearTestData = async () => {
-    if (!window.confirm('CẢNH BÁO: Bạn có chắc muốn XÓA SẠCH toàn bộ dữ liệu phân bổ và phiếu xuất chờ soạn đã tạo?')) return;
-    try {
-      await outboundApi.clearTestData();
-      alert('Đã xóa sạch toàn bộ dữ liệu phân bổ và phiếu xuất chờ soạn!');
-      setSelectedItems({});
-      fetchRequirements();
-    } catch (e) {
-      alert('Lỗi xóa dữ liệu phân bổ: ' + e.message);
-    }
-  };
-
   // Render Tab Nhập Liệu Dạng Bảng Danh Mục
   const renderPasteTab = () => {
     const totalPasteQty = parsedRows.reduce((sum, r) => sum + (Number(r.requested_qty) || 0), 0);
@@ -682,13 +670,6 @@ export default function ExportDispatchScreen({ onBack }) {
             🔄 Xóa Lọc
           </button>
 
-          <button
-            onClick={handleClearTestData}
-            style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #fca5a5', backgroundColor: '#fef2f2', color: '#dc2626', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600 }}
-            title="Xóa toàn bộ các phiếu chờ soạn và trả số lượng đã phân bổ về 0"
-          >
-            🗑️ Xóa Phân Bổ & Phiếu Chờ Soạn
-          </button>
         </div>
 
       </div>
@@ -1228,8 +1209,10 @@ export default function ExportDispatchScreen({ onBack }) {
   const [tempDispatches, setTempDispatches] = useState([]);
   const [loadingTemp, setLoadingTemp] = useState(false);
   const [showCreateTempModal, setShowCreateTempModal] = useState(false);
+  const [showConfirmTempModal, setShowConfirmTempModal] = useState(false);
   const [showReturnTempModal, setShowReturnTempModal] = useState(false);
   const [selectedTemp, setSelectedTemp] = useState(null);
+  const [tempScanIds, setTempScanIds] = useState('');
 
   // Form states for Create Temp Dispatch
   const [tempBorrower, setTempBorrower] = useState('');
@@ -1241,6 +1224,7 @@ export default function ExportDispatchScreen({ onBack }) {
   // Form states for Return Temp Dispatch
   const [returnCondition, setReturnCondition] = useState('EXACT');
   const [returnQty, setReturnQty] = useState('');
+  const [returnSourceId60, setReturnSourceId60] = useState('');
   const [returnedId60, setReturnedId60] = useState('');
   const [returnedProductCode, setReturnedProductCode] = useState('');
 
@@ -1289,15 +1273,19 @@ export default function ExportDispatchScreen({ onBack }) {
   };
 
   const handleReturnSubmit = async () => {
-    if (!selectedTemp || !returnQty) {
-      alert('Vui lòng nhập số lượng hoàn trả!');
+    if (!selectedTemp || !returnSourceId60.trim() || !returnQty) {
+      alert('Vui lòng nhập mã thùng gốc và số lượng hoàn trả!');
+      return;
+    }
+    if (returnCondition !== 'EXACT' && !returnedId60.trim()) {
+      alert('Hình thức trả đổi mã bắt buộc nhập mã thùng 60 mới!');
       return;
     }
     try {
       await httpClient.post(`/temporary-dispatch/${selectedTemp.dispatch_no}/return`, {
         return_items: [
           {
-            id_60: selectedTemp.dispatch_no,
+            id_60: returnSourceId60.trim(),
             return_condition: returnCondition,
             qty: Number(returnQty),
             returned_id_60: returnedId60,
@@ -1308,9 +1296,38 @@ export default function ExportDispatchScreen({ onBack }) {
       alert('Hoàn nhập trả hàng thành công!');
       setShowReturnTempModal(false);
       setSelectedTemp(null);
+      setReturnSourceId60('');
+      setReturnQty('');
+      setReturnedId60('');
+      setReturnedProductCode('');
       fetchTempDispatches();
     } catch (err) {
       alert('Lỗi hoàn nhập trả hàng: ' + (err.message || 'Không xác định'));
+    }
+  };
+
+  const handleConfirmTempSubmit = async () => {
+    const id60List = tempScanIds
+      .split(/[\n,;]+/)
+      .map(value => value.trim())
+      .filter(Boolean);
+
+    if (!selectedTemp || id60List.length === 0) {
+      alert('Vui lòng quét hoặc nhập ít nhất một mã thùng 60!');
+      return;
+    }
+
+    try {
+      await httpClient.post(`/temporary-dispatch/${selectedTemp.dispatch_no}/confirm-scan`, {
+        id_60_list: id60List
+      });
+      alert('Xác nhận thực xuất tạm thành công!');
+      setShowConfirmTempModal(false);
+      setSelectedTemp(null);
+      setTempScanIds('');
+      fetchTempDispatches();
+    } catch (err) {
+      alert('Lỗi xác nhận thực xuất: ' + (err.message || 'Không xác định'));
     }
   };
 
@@ -1384,16 +1401,29 @@ export default function ExportDispatchScreen({ onBack }) {
                           </span>
                         </td>
                         <td style={{ textAlign: 'center' }}>
-                          <button
-                            onClick={() => {
-                              setSelectedTemp(row);
-                              setShowReturnTempModal(true);
-                            }}
-                            className="btn btn-secondary"
-                            style={{ padding: '4px 8px', fontSize: '0.75rem', borderRadius: '4px', background: '#dcfce7', color: '#15803d', border: '1px solid #bbf7d0', fontWeight: 700, cursor: 'pointer' }}
-                          >
-                            ↩️ Nhập Trả Hàng
-                          </button>
+                          {row.status === 'PENDING_OUT' ? (
+                            <button
+                              onClick={() => {
+                                setSelectedTemp(row);
+                                setShowConfirmTempModal(true);
+                              }}
+                              className="btn btn-secondary"
+                              style={{ padding: '4px 8px', fontSize: '0.75rem', borderRadius: '4px', background: '#fef3c7', color: '#b45309', border: '1px solid #fcd34d', fontWeight: 700, cursor: 'pointer' }}
+                            >
+                              📦 Quét Thực Xuất
+                            </button>
+                          ) : row.status === 'TEMP_OUT' || row.status === 'OVERDUE' ? (
+                            <button
+                              onClick={() => {
+                                setSelectedTemp(row);
+                                setShowReturnTempModal(true);
+                              }}
+                              className="btn btn-secondary"
+                              style={{ padding: '4px 8px', fontSize: '0.75rem', borderRadius: '4px', background: '#dcfce7', color: '#15803d', border: '1px solid #bbf7d0', fontWeight: 700, cursor: 'pointer' }}
+                            >
+                              ↩️ Nhập Trả Hàng
+                            </button>
+                          ) : null}
                         </td>
                       </tr>
                     ))
@@ -1444,12 +1474,38 @@ export default function ExportDispatchScreen({ onBack }) {
           </div>
         )}
 
+        {/* Modal Quét Thực Xuất (Step 2) */}
+        {showConfirmTempModal && selectedTemp && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <div style={{ backgroundColor: '#fff', padding: '1.5rem', borderRadius: '8px', width: '550px', maxWidth: '90%' }}>
+              <h3 style={{ marginTop: 0, color: '#b45309' }}>📦 Quét Thực Xuất ({selectedTemp.dispatch_no})</h3>
+              <label style={{ fontWeight: 600, fontSize: '0.85rem' }}>Mã Thùng 60 (mỗi dòng một mã):</label>
+              <textarea
+                className="input-field"
+                style={{ width: '100%', minHeight: '150px', padding: '8px', marginTop: '8px' }}
+                value={tempScanIds}
+                onChange={event => setTempScanIds(event.target.value)}
+                autoFocus
+                placeholder={'BX-001\nBX-002'}
+              />
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '1rem' }}>
+                <button onClick={() => setShowConfirmTempModal(false)} className="btn btn-secondary" style={{ padding: '8px 16px' }}>Hủy</button>
+                <button onClick={handleConfirmTempSubmit} className="btn btn-primary" style={{ padding: '8px 16px', background: '#d97706', borderColor: '#b45309' }}>Xác Nhận Xuất Tạm</button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Modal Hoàn Nhập Trả Hàng (Step 3) */}
         {showReturnTempModal && selectedTemp && (
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
             <div style={{ backgroundColor: '#fff', padding: '1.5rem', borderRadius: '8px', width: '550px', maxWidth: '90%' }}>
               <h3 style={{ marginTop: 0, color: '#15803d' }}>↩️ Hoàn Nhập Trả Hàng Xuất Tạm ({selectedTemp.dispatch_no})</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', margin: '1rem 0' }}>
+                <div>
+                  <label style={{ fontWeight: 600, fontSize: '0.85rem' }}>Mã Thùng 60 Gốc (*):</label>
+                  <input type="text" className="input-field" style={{ width: '100%', padding: '8px' }} value={returnSourceId60} onChange={e => setReturnSourceId60(e.target.value)} placeholder="Quét mã thùng đã xuất tạm..." />
+                </div>
                 <div>
                   <label style={{ fontWeight: 600, fontSize: '0.85rem' }}>Hình Thức Hoàn Trả (Return Scenario):</label>
                   <select className="input-field" style={{ width: '100%', padding: '8px' }} value={returnCondition} onChange={e => setReturnCondition(e.target.value)}>
@@ -1462,7 +1518,7 @@ export default function ExportDispatchScreen({ onBack }) {
                   <label style={{ fontWeight: 600, fontSize: '0.85rem' }}>Số Lượng Hoàn Trả (*):</label>
                   <input type="number" className="input-field" style={{ width: '100%', padding: '8px' }} value={returnQty} onChange={e => setReturnQty(e.target.value)} placeholder="Nhập số lượng thực trả..." />
                 </div>
-                {returnCondition === 'REPACKED_NEW_BOX' && (
+                {returnCondition !== 'EXACT' && (
                   <div>
                     <label style={{ fontWeight: 600, fontSize: '0.85rem' }}>Mã Thùng 60 Mới (In lại):</label>
                     <input type="text" className="input-field" style={{ width: '100%', padding: '8px' }} value={returnedId60} onChange={e => setReturnedId60(e.target.value)} placeholder="Mã thùng 60 mới..." />

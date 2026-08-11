@@ -43,7 +43,6 @@ public class MasterDataController : ControllerBase
         return Ok(ApiResponse<object>.Success(result));
     }
 
-    [AllowAnonymous]
     [HttpGet("products")]
     public async Task<IActionResult> GetProducts()
     {

@@ -1,4 +1,5 @@
 using System.IdentityModel.Tokens.Jwt;
+using System.Globalization;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.Extensions.Configuration;
@@ -16,7 +17,12 @@ public class JwtTokenService : IJwtTokenService
         _configuration = configuration;
     }
 
-    public string GenerateToken(string userId, string username, IEnumerable<string> roles, IEnumerable<string>? permissions = null)
+    public string GenerateToken(
+        string userId,
+        string username,
+        IEnumerable<string> roles,
+        IEnumerable<string>? permissions = null,
+        bool mustChangePassword = false)
     {
         var jwtSecret = _configuration["Jwt:Secret"] 
             ?? throw new InvalidOperationException("Bắt buộc phải cấu hình Secret JWT trong appsettings.");
@@ -33,11 +39,21 @@ public class JwtTokenService : IJwtTokenService
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
+        var issuedAt = DateTimeOffset.UtcNow;
         var claims = new List<Claim>
         {
             new(ClaimTypes.NameIdentifier, userId),
             new(ClaimTypes.Name, username),
-            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            new(
+                JwtRegisteredClaimNames.Iat,
+                issuedAt.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture),
+                ClaimValueTypes.Integer64),
+            new(
+                "issued_at_utc_ticks",
+                issuedAt.UtcTicks.ToString(CultureInfo.InvariantCulture),
+                ClaimValueTypes.Integer64),
+            new("must_change_password", mustChangePassword ? "true" : "false", ClaimValueTypes.Boolean)
         };
 
         foreach (var role in roles)
@@ -57,7 +73,7 @@ public class JwtTokenService : IJwtTokenService
             issuer: issuer,
             audience: audience,
             claims: claims,
-            expires: DateTime.UtcNow.AddMinutes(expiryInMinutes),
+            expires: issuedAt.UtcDateTime.AddMinutes(expiryInMinutes),
             signingCredentials: credentials);
 
         return new JwtSecurityTokenHandler().WriteToken(token);

@@ -47,6 +47,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<ISqlConnectionFactory, SqlConnectionFactory>();
 builder.Services.AddScoped<IStoredProcedureExecutor, StoredProcedureExecutor>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
+builder.Services.AddScoped<IUserSessionValidator, UserSessionValidator>();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
@@ -128,11 +129,16 @@ builder.Services.AddHealthChecks()
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
                      ?? new[] { "http://localhost:5173", "http://localhost:3000" };
 
+if (allowedOrigins.Length == 0 || allowedOrigins.Any(origin => origin == "*"))
+{
+    throw new InvalidOperationException("Cors:AllowedOrigins phải chứa danh sách origin cụ thể; không được dùng wildcard khi bật credentials.");
+}
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("WmsCorsPolicy", policy =>
     {
-        policy.SetIsOriginAllowed(_ => true)
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
@@ -168,13 +174,16 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    options.AddFixedWindowLimiter("LoginRateLimit", opt =>
-    {
-        opt.PermitLimit = 20;
-        opt.Window = TimeSpan.FromMinutes(1);
-        opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-        opt.QueueLimit = 0;
-    });
+    options.AddPolicy("LoginRateLimit", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 20,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            }));
 });
 
 var app = builder.Build();
@@ -192,6 +201,7 @@ if (app.Environment.IsDevelopment())
 app.UseCors("WmsCorsPolicy");
 app.UseRateLimiter();
 app.UseAuthentication();
+app.UseMiddleware<UserSessionValidationMiddleware>();
 app.UseAuthorization();
 
 app.MapControllers();

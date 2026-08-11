@@ -27,6 +27,7 @@ public class ReceiptController : ControllerBase
     }
 
     [HttpGet("handovers")]
+    [Authorize(Policy = PolicyNames.ReceiptRead)]
     public async Task<IActionResult> GetAllHandovers()
     {
         var result = await _spExecutor.QueryAsync<dynamic>("usp_Receipt_GetAllProductionHandovers");
@@ -34,6 +35,7 @@ public class ReceiptController : ControllerBase
     }
 
     [HttpGet("handover/{no}")]
+    [Authorize(Policy = PolicyNames.ReceiptRead)]
     public async Task<IActionResult> GetHandoverDetails([FromRoute] string no)
     {
         var parameters = new
@@ -55,6 +57,7 @@ public class ReceiptController : ControllerBase
     }
 
     [HttpGet("orders/search")]
+    [Authorize(Policy = PolicyNames.ReceiptRead)]
     public async Task<IActionResult> SearchOrders([FromQuery] string? keyword)
     {
         var result = await _spExecutor.QueryAsync<dynamic>("usp_WMS_UC02_SearchDonHang", new { Keyword = keyword ?? "" });
@@ -62,6 +65,7 @@ public class ReceiptController : ControllerBase
     }
 
     [HttpPost("map-order")]
+    [Authorize(Policy = PolicyNames.ReceiptManage)]
     public async Task<IActionResult> MapOemOrder([FromBody] MapOemOrderRequest request)
     {
         try
@@ -85,6 +89,7 @@ public class ReceiptController : ControllerBase
     }
 
     [HttpPost("unmap-order")]
+    [Authorize(Policy = PolicyNames.ReceiptManage)]
     public async Task<IActionResult> UnmapOemOrder([FromBody] UnmapOemOrderRequest request)
     {
         try
@@ -107,6 +112,7 @@ public class ReceiptController : ControllerBase
     }
 
     [HttpPost("scan")]
+    [Authorize(Policy = PolicyNames.ReceiptScan)]
     public async Task<IActionResult> ScanBarcode([FromBody] ReceiptScanRequest request)
     {
         var parameters = new
@@ -124,6 +130,7 @@ public class ReceiptController : ControllerBase
     }
 
     [HttpPost("confirm")]
+    [Authorize(Policy = PolicyNames.ReceiptConfirm)]
     public async Task<IActionResult> OfficialConfirm([FromBody] ReceiptConfirmRequest request)
     {
         var parameters = new
@@ -140,6 +147,7 @@ public class ReceiptController : ControllerBase
     }
 
     [HttpPost("scan-thung60")]
+    [Authorize(Policy = PolicyNames.ReceiptScan)]
     public async Task<IActionResult> ScanThung60([FromBody] ScanThung60Request request)
     {
         if (string.IsNullOrWhiteSpace(request.HandoverNo) ||
@@ -170,6 +178,7 @@ public class ReceiptController : ControllerBase
     }
 
     [HttpPost("confirm-nhap-kho")]
+    [Authorize(Policy = PolicyNames.ReceiptConfirm)]
     public async Task<IActionResult> ConfirmNhapKho([FromBody] ConfirmNhapKhoRequest request)
     {
         var parameters = new
@@ -185,6 +194,7 @@ public class ReceiptController : ControllerBase
     }
 
     [HttpPost("confirm-nhap-le")]
+    [Authorize(Policy = PolicyNames.ReceiptConfirm)]
     public async Task<IActionResult> ConfirmNhapLe([FromBody] ConfirmNhapLeRequest request)
     {
         var parameters = new
@@ -201,6 +211,7 @@ public class ReceiptController : ControllerBase
     }
 
     [HttpPost("confirm-nhap-le-batch")]
+    [Authorize(Policy = PolicyNames.ReceiptConfirm)]
     public async Task<IActionResult> ConfirmNhapLeBatch([FromBody] ConfirmNhapLeBatchRequest request)
     {
         if (request.Lines == null || !request.Lines.Any())
@@ -225,6 +236,7 @@ public class ReceiptController : ControllerBase
     }
 
     [HttpPost("cancel-scan")]
+    [Authorize(Policy = PolicyNames.ReceiptManage)]
     public async Task<IActionResult> CancelScan([FromBody] CancelScanRequest request)
     {
         var parameters = new
@@ -239,6 +251,7 @@ public class ReceiptController : ControllerBase
     }
 
     [HttpGet("confirm-list")]
+    [Authorize(Policy = PolicyNames.ReceiptRead)]
     public async Task<IActionResult> GetPendingHandovers()
     {
         var result = await _spExecutor.QueryAsync<dynamic>("usp_WMS_UC04_GetPendingHandovers");
@@ -246,6 +259,7 @@ public class ReceiptController : ControllerBase
     }
 
     [HttpGet("confirm-handover/{handoverNo}/lines")]
+    [Authorize(Policy = PolicyNames.ReceiptRead)]
     public async Task<IActionResult> GetHandoverLines([FromRoute] string handoverNo)
     {
         var result = await _spExecutor.QueryAsync<dynamic>("usp_WMS_UC04_GetHandoverLines", new { SoPhieuNhap = handoverNo });
@@ -253,6 +267,7 @@ public class ReceiptController : ControllerBase
     }
 
     [HttpGet("confirm-detail/{handoverNo}/{lineNo}")]
+    [Authorize(Policy = PolicyNames.ReceiptRead)]
     public async Task<IActionResult> GetPendingBoxes([FromRoute] string handoverNo, [FromRoute] string lineNo)
     {
         var result = await _spExecutor.QueryAsync<dynamic>("usp_WMS_UC04_GetPendingBoxes", new { SoPhieuNhap = handoverNo, MaChiTietPhieu = lineNo });
@@ -260,6 +275,7 @@ public class ReceiptController : ControllerBase
     }
 
     [HttpGet("handover/{handoverNo}/line/{lineNo}/progress")]
+    [Authorize(Policy = PolicyNames.ReceiptRead)]
     public async Task<IActionResult> GetHandoverLineProgress([FromRoute] string handoverNo, [FromRoute] string lineNo, [FromQuery] string? productCode)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync();
@@ -280,6 +296,7 @@ public class ReceiptController : ControllerBase
     }
 
     [HttpGet("handover/{handoverNo}/line/{lineNo}/scanned-boxes")]
+    [Authorize(Policy = PolicyNames.ReceiptRead)]
     public async Task<IActionResult> GetHandoverLineScannedBoxes([FromRoute] string handoverNo, [FromRoute] string lineNo, [FromQuery] string? productCode)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync();
@@ -297,6 +314,7 @@ public class ReceiptController : ControllerBase
     }
 
     [HttpPost("handover/{handoverNo}/cancel-scan")]
+    [Authorize(Policy = PolicyNames.ReceiptManage)]
     public async Task<IActionResult> CancelHandoverScan([FromRoute] string handoverNo, [FromBody] CancelScanRequest request)
     {
         var parameters = new

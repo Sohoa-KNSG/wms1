@@ -9,7 +9,7 @@ namespace Wms.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/trace")]
-[Authorize]
+[Authorize(Policy = PolicyNames.TraceRead)]
 public class TraceController : ControllerBase
 {
     private readonly ISqlConnectionFactory _connectionFactory;

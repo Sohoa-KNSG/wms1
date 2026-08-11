@@ -23,6 +23,7 @@ public class OemOrdersController : ControllerBase
     }
 
     [HttpGet("products")]
+    [Authorize(Policy = PolicyNames.OemRead)]
     public async Task<IActionResult> GetProducts()
     {
         using var connection = await _connectionFactory.CreateConnectionAsync();
@@ -31,6 +32,7 @@ public class OemOrdersController : ControllerBase
     }
 
     [HttpGet]
+    [Authorize(Policy = PolicyNames.OemRead)]
     public async Task<IActionResult> GetOrders([FromQuery] string? search, [FromQuery] string? status, [FromQuery] DateTime? startDate, [FromQuery] DateTime? endDate)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync();
@@ -68,6 +70,7 @@ public class OemOrdersController : ControllerBase
     }
 
     [HttpPost("import")]
+    [Authorize(Policy = PolicyNames.OemManage)]
     public async Task<IActionResult> ImportOrders([FromBody] OemImportRequest request)
     {
         if (request.Orders == null || !request.Orders.Any())
@@ -153,6 +156,7 @@ public class OemOrdersController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Policy = PolicyNames.OemManage)]
     public async Task<IActionResult> CreateOrder([FromBody] OemOrderDto order)
     {
         if (string.IsNullOrWhiteSpace(order.OemOrderNo) || string.IsNullOrWhiteSpace(order.ProductCode) || order.BatchNo <= 0 || order.TargetQty <= 0)
@@ -232,6 +236,7 @@ public class OemOrdersController : ControllerBase
     }
 
     [HttpPut("{orderNo}/{productCode}/{batchNo}")]
+    [Authorize(Policy = PolicyNames.OemManage)]
     public async Task<IActionResult> UpdateOrder(
         [FromRoute] string orderNo,
         [FromRoute] string productCode,
@@ -315,6 +320,7 @@ public class OemOrdersController : ControllerBase
     }
 
     [HttpGet("{orderNo}/{productCode}/{batchNo}/history")]
+    [Authorize(Policy = PolicyNames.OemRead)]
     public async Task<IActionResult> GetOrderHistory(
         [FromRoute] string orderNo,
         [FromRoute] string productCode,
