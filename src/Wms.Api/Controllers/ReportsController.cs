@@ -241,4 +241,49 @@ public class ReportsController : ControllerBase
         var bytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
         return File(bytes, "text/csv; charset=utf-8", fileName);
     }
+
+    [HttpGet("smart/abc-xyz")]
+    public async Task<IActionResult> GetAbcXyzReport()
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync();
+        var sql = "SELECT * FROM vw_WMS_UC22_3_ABC_XYZ_Analysis";
+        var result = await connection.QueryAsync(sql);
+        return Ok(ApiResponse<object>.Success(result));
+    }
+
+    [HttpGet("smart/heatmap")]
+    public async Task<IActionResult> GetHeatmapReport()
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync();
+        var sql = "EXEC usp_WMS_UC22_3_GetWarehouseHeatmap";
+        var result = await connection.QueryAsync(sql);
+        return Ok(ApiResponse<object>.Success(result));
+    }
+
+    [HttpGet("smart/picking-kpi")]
+    public async Task<IActionResult> GetPickingKpiReport()
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync();
+        var sql = "EXEC usp_WMS_UC22_4_GetPickingPerformanceKPI";
+        var result = await connection.QueryAsync(sql);
+        return Ok(ApiResponse<object>.Success(result));
+    }
+
+    [HttpGet("smart/aging")]
+    public async Task<IActionResult> GetAgingReport()
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync();
+        var sql = "EXEC usp_WMS_UC22_5_GetStockAgingPrediction";
+        var result = await connection.QueryAsync(sql);
+        return Ok(ApiResponse<object>.Success(result));
+    }
+
+    [HttpGet("smart/reconciliation")]
+    public async Task<IActionResult> GetReconciliationReport()
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync();
+        var sql = "EXEC usp_WMS_UC22_6_ReconcilePhysicalVsLedger";
+        var result = await connection.QueryAsync(sql);
+        return Ok(ApiResponse<object>.Success(result));
+    }
 }
